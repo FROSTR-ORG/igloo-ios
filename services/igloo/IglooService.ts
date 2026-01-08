@@ -246,8 +246,9 @@ class IglooService extends EventEmitter<IglooServiceEvents> {
 
   /**
    * Get share details including threshold info.
+   * Returns null if credentials cannot be decoded.
    */
-  getShareDetails(share: string, group: string): ShareDetails {
+  getShareDetails(share: string, group: string): ShareDetails | null {
     try {
       // Decode credentials directly instead of relying on getShareDetailsWithGroup
       // because getShareDetailsWithGroup returns undefined for totalMembers
@@ -280,13 +281,7 @@ class IglooService extends EventEmitter<IglooServiceEvents> {
       this.log('error', 'system', 'Failed to decode share details', {
         error: error instanceof Error ? error.message : 'Unknown error',
       });
-      // Return safe defaults on error
-      return {
-        idx: 0,
-        threshold: 0,
-        totalMembers: 0,
-        groupPubkey: '',
-      };
+      return null;
     }
   }
 

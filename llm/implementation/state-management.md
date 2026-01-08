@@ -463,21 +463,23 @@ export function useCredentials() {
   const { validateCredentials, getShareDetails, sendEcho } = useIgloo();
 
   const saveCredentials = useCallback(async (share, group) => {
-    // 1. Validate
+    // 1. Validate format (bech32 prefix/checksum)
     const validation = validateCredentials(share, group);
     if (!validation.isValid) throw new Error(...);
 
-    // 2. Save to SecureStore
+    // 2. Decode credentials (catches corrupted payloads)
+    // Returns null if decode fails - must check before persisting
+    const details = getShareDetails(share, group);
+    if (!details) throw new Error('Failed to decode credentials');
+
+    // 3. Only persist after decode succeeds
     await secureStorage.saveCredentials(share, group);
     setCredentialsExist(true);
-
-    // 3. Extract and save details
-    const details = getShareDetails(share, group);
     setShareDetails(details);
 
     // 4. Send echo (non-blocking)
     try {
-      const challenge = nanoid(32);
+      const challenge = generateHexChallenge(32);
       const echoSuccess = await sendEcho(challenge, relays, group, share);
       setEchoSent(echoSuccess);
     } catch { /* Continue even if echo fails */ }

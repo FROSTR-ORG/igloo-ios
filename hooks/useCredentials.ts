@@ -57,7 +57,7 @@ export function useCredentials() {
    */
   const saveCredentials = useCallback(
     async (share: string, group: string): Promise<{ success: boolean; echoSent: boolean }> => {
-      // Validate first
+      // Validate format first
       const validation = validateCredentials(share, group);
       if (!validation.isValid) {
         throw new Error(
@@ -65,12 +65,16 @@ export function useCredentials() {
         );
       }
 
-      // Save to secure storage
+      // Decode credentials before saving to ensure they're valid
+      // This catches corrupted payloads that pass format validation
+      const details = getShareDetails(share, group);
+      if (!details) {
+        throw new Error('Failed to decode credentials - they may be corrupted');
+      }
+
+      // Only persist after decode succeeds
       await secureStorage.saveCredentials(share, group);
       setCredentialsExist(true);
-
-      // Get and save share details
-      const details = getShareDetails(share, group);
       setShareDetails(details);
 
       // Send echo signal

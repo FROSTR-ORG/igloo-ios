@@ -91,8 +91,12 @@ function RootLayoutNav() {
         const credentials = await secureStorage.getCredentials();
         if (credentials) {
           const details = getShareDetails(credentials.share, credentials.group);
-          setShareDetails(details);
-          console.log('[RootLayout] Refreshed shareDetails:', details);
+          if (details) {
+            setShareDetails(details);
+            console.log('[RootLayout] Refreshed shareDetails:', details);
+          } else {
+            console.warn('[RootLayout] Failed to decode share details');
+          }
         }
       } catch (error) {
         console.warn('[RootLayout] Failed to refresh shareDetails:', error);

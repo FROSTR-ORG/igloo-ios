@@ -177,14 +177,16 @@ return {
 ### `getShareDetails()`
 
 ```typescript
-getShareDetails(share: string, group: string): ShareDetails
+getShareDetails(share: string, group: string): ShareDetails | null
 ```
 
-Wraps `getShareDetailsWithGroup()` to extract:
+Wraps `decodeShare()` and `decodeGroup()` to extract:
 - `idx` - Share index in the group
 - `threshold` - Required signers (k)
 - `totalMembers` - Total shares (n)
 - `groupPubkey` - Public key of the FROST group
+
+Returns `null` if credentials cannot be decoded (corrupted payload, etc.). Callers must handle null before using details.
 
 ### `getPeers()`
 
