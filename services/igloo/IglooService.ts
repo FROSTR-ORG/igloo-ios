@@ -30,6 +30,7 @@ import type {
   IglooServiceEvents,
 } from '@/types';
 import type { StartSignerOptions } from './types';
+import { audioService } from '@/services/audio';
 
 /**
  * IglooService - Core service wrapping @frostr/igloo-core for React Native.
@@ -54,10 +55,10 @@ class IglooService extends EventEmitter<IglooServiceEvents> {
     relays: string[],
     options: StartSignerOptions = {}
   ): Promise<void> {
-    // Don't start if already running
+    // Don't start if already running - restart with audio preserved
     if (this.node) {
-      this.log('warn', 'system', 'Signer already running, stopping first...');
-      await this.stopSigner();
+      this.log('warn', 'system', 'Signer already running, restarting (keeping audio)...');
+      await this.stopSigner({ keepAudio: true });
     }
 
     this.emit('status:changed', 'connecting');
@@ -99,6 +100,16 @@ class IglooService extends EventEmitter<IglooServiceEvents> {
       this.setupNodeEventListeners();
 
       this.emit('status:changed', 'running');
+
+      // Start background audio to keep app alive in iOS background mode
+      try {
+        await audioService.play();
+      } catch (error) {
+        this.log('warn', 'system', 'Failed to start background audio', {
+          error: error instanceof Error ? error.message : 'Unknown',
+        });
+      }
+
       this.log('info', 'system', 'Signer node started successfully', {
         relayCount: state.connectedRelays.length,
         requestedRelays: relays.length,
@@ -123,14 +134,15 @@ class IglooService extends EventEmitter<IglooServiceEvents> {
 
   /**
    * Stop the signer node and clean up resources.
+   * @param options.keepAudio - If true, don't stop background audio (used during restart)
    */
-  async stopSigner(): Promise<void> {
+  async stopSigner(options: { keepAudio?: boolean } = {}): Promise<void> {
     if (!this.node) {
       this.log('debug', 'system', 'No node to stop');
       return;
     }
 
-    this.log('info', 'system', 'Stopping signer node...');
+    this.log('info', 'system', 'Stopping signer node...', { keepAudio: options.keepAudio });
 
     try {
       // Emit disconnection events for current relays
@@ -148,12 +160,33 @@ class IglooService extends EventEmitter<IglooServiceEvents> {
       this.pendingRequests.clear();
 
       this.emit('status:changed', 'stopped');
+
+      // Stop background audio (unless we're restarting)
+      if (!options.keepAudio) {
+        try {
+          await audioService.stop();
+        } catch (audioError) {
+          this.log('warn', 'system', 'Failed to stop background audio', {
+            error: audioError instanceof Error ? audioError.message : 'Unknown',
+          });
+        }
+      }
+
       this.log('info', 'system', 'Signer node stopped');
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       this.log('error', 'system', 'Error during node cleanup', { error: errorMessage });
       // Still mark as stopped even if cleanup had issues
       this.emit('status:changed', 'stopped');
+
+      // Also stop audio on error (unless we're restarting)
+      if (!options.keepAudio) {
+        try {
+          await audioService.stop();
+        } catch {
+          // Ignore audio stop errors during error handling
+        }
+      }
     }
   }
 
