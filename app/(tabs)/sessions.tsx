@@ -329,7 +329,7 @@ function PeerCard({
               {peer.displayName}
             </Text>
           )}
-          <Pressable onPress={handleCopyPubkey}>
+          <Pressable onPress={(e) => { e.stopPropagation(); handleCopyPubkey(); }}>
             <View className="flex-row items-center">
               <Text className={`text-sm font-mono ${peer.displayName ? 'text-gray-400' : 'text-gray-100'}`}>
                 {truncatePubkey(peer.pubkey)}

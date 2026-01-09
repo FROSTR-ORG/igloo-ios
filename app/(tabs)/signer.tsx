@@ -60,12 +60,16 @@ export default function SignerTab() {
     let mounted = true;
 
     async function loadCredentials() {
-      const creds = await secureStorage.getCredentials();
-      if (!mounted || !creds) return;
+      try {
+        const creds = await secureStorage.getCredentials();
+        if (!mounted || !creds) return;
 
-      setCredentials(creds);
-      setDecodedGroup(decodeGroupCredential(creds.group));
-      setDecodedShare(decodeShareCredential(creds.share));
+        setCredentials(creds);
+        setDecodedGroup(decodeGroupCredential(creds.group));
+        setDecodedShare(decodeShareCredential(creds.share));
+      } catch (error) {
+        console.error('Failed to load credentials:', error);
+      }
     }
     loadCredentials();
 
