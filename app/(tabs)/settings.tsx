@@ -33,12 +33,12 @@ export default function SettingsTab() {
     const url = newRelay.trim();
     const wsUrlPattern = /^(ws|wss):\/\/([^\s/]+)(\/.*)?$/;
     const match = url.match(wsUrlPattern);
-    
+
     if (!match) {
       setRelayError('URL must start with ws:// or wss://');
       return;
     }
-    
+
     const host = match[2];
     if (!host || host.length === 0) {
       setRelayError('Invalid relay URL');
@@ -116,11 +116,11 @@ export default function SettingsTab() {
   }, [shareDetails]);
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50 dark:bg-gray-900" edges={['bottom']}>
+    <SafeAreaView className="flex-1 bg-gray-950" edges={['bottom']}>
       <ScrollView className="flex-1" contentContainerClassName="p-4">
         {/* Relay Configuration */}
         <View className="mb-6">
-          <Text className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">
+          <Text className="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-3">
             Relay Configuration
           </Text>
 
@@ -130,13 +130,13 @@ export default function SettingsTab() {
               <View
                 key={relay}
                 className={`flex-row items-center justify-between py-3 ${
-                  index > 0 ? 'border-t border-gray-100 dark:border-gray-700' : ''
+                  index > 0 ? 'border-t border-blue-900/30' : ''
                 }`}
               >
                 <View className="flex-row items-center flex-1 mr-2">
-                  <FontAwesome name="server" size={14} color="#6b7280" />
+                  <FontAwesome name="server" size={14} color="#9ca3af" />
                   <Text
-                    className="text-sm text-gray-900 dark:text-white ml-2 flex-1"
+                    className="text-sm text-gray-100 ml-2 flex-1"
                     numberOfLines={1}
                   >
                     {relay}
@@ -147,13 +147,13 @@ export default function SettingsTab() {
                   className="p-2"
                   hitSlop={8}
                 >
-                  <FontAwesome name="times" size={16} color="#ef4444" />
+                  <FontAwesome name="trash" size={14} color="#ef4444" />
                 </Pressable>
               </View>
             ))}
 
             {relays.length === 0 && (
-              <Text className="text-gray-500 dark:text-gray-400 py-4 text-center">
+              <Text className="text-gray-400 py-4 text-center">
                 No relays configured
               </Text>
             )}
@@ -161,7 +161,7 @@ export default function SettingsTab() {
 
           {/* Add Relay */}
           <Card>
-            <Text className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <Text className="text-sm font-medium text-gray-300 mb-2">
               Add Relay
             </Text>
             <View className="flex-row items-start">
@@ -184,7 +184,7 @@ export default function SettingsTab() {
 
           {/* Reset Button */}
           <Pressable onPress={handleResetRelays} className="mt-3 py-2">
-            <Text className="text-frost-600 dark:text-frost-400 text-center text-sm">
+            <Text className="text-blue-400 text-center text-sm">
               Reset to Default Relays
             </Text>
           </Pressable>
@@ -193,7 +193,7 @@ export default function SettingsTab() {
         {/* Credential Info */}
         {shareDetails && (
           <View className="mb-6">
-            <Text className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">
+            <Text className="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-3">
               Credential Information
             </Text>
 
@@ -220,7 +220,7 @@ export default function SettingsTab() {
 
         {/* App Info */}
         <View className="mb-6">
-          <Text className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">
+          <Text className="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-3">
             About
           </Text>
 
@@ -232,12 +232,12 @@ export default function SettingsTab() {
 
         {/* Danger Zone */}
         <View>
-          <Text className="text-sm font-semibold text-red-500 uppercase tracking-wide mb-3">
+          <Text className="text-sm font-semibold text-red-400 uppercase tracking-wide mb-3">
             Danger Zone
           </Text>
 
-          <Card className="border-red-200 dark:border-red-900">
-            <Text className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+          <Card className="border-red-900/30">
+            <Text className="text-sm text-gray-400 mb-4">
               Clearing your credentials will remove all stored data and return you to the
               onboarding screen. Make sure you have a backup of your credentials.
             </Text>
@@ -267,12 +267,12 @@ function InfoRow({
   return (
     <View
       className={`flex-row items-center justify-between py-2 ${
-        isLast ? '' : 'border-b border-gray-100 dark:border-gray-700'
+        isLast ? '' : 'border-b border-blue-900/30'
       }`}
     >
-      <Text className="text-sm text-gray-500 dark:text-gray-400">{label}</Text>
+      <Text className="text-sm text-gray-400">{label}</Text>
       <View className="flex-row items-center">
-        <Text className="text-sm font-medium text-gray-900 dark:text-white">{value}</Text>
+        <Text className="text-sm font-medium text-gray-100">{value}</Text>
         {copyable && (
           <FontAwesome name="copy" size={12} color="#9ca3af" style={{ marginLeft: 6 }} />
         )}

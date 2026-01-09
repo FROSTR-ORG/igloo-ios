@@ -176,26 +176,26 @@ export default function OnboardingScan() {
 
   if (!permission) {
     return (
-      <SafeAreaView className="flex-1 bg-gray-900 items-center justify-center">
-        <Text className="text-white">Requesting camera permission...</Text>
+      <SafeAreaView className="flex-1 bg-gray-950 items-center justify-center">
+        <Text className="text-gray-100">Requesting camera permission...</Text>
       </SafeAreaView>
     );
   }
 
   if (!permission.granted) {
     return (
-      <SafeAreaView className="flex-1 bg-white dark:bg-gray-900">
+      <SafeAreaView className="flex-1 bg-gray-950">
         <View className="flex-1 px-6 items-center justify-center">
           <FontAwesome name="camera" size={48} color="#9ca3af" />
-          <Text className="text-lg font-semibold text-gray-900 dark:text-white mt-4 mb-2">
+          <Text className="text-lg font-semibold text-gray-100 mt-4 mb-2">
             Camera Access Required
           </Text>
-          <Text className="text-base text-gray-600 dark:text-gray-400 text-center mb-6">
+          <Text className="text-base text-gray-400 text-center mb-6">
             We need camera access to scan QR codes containing your credentials.
           </Text>
           <Button title="Grant Permission" onPress={requestPermission} />
           <Pressable onPress={() => router.back()} className="mt-4 py-2">
-            <Text className="text-frost-600 dark:text-frost-400">Go Back</Text>
+            <Text className="text-blue-400">Go Back</Text>
           </Pressable>
         </View>
       </SafeAreaView>
@@ -273,7 +273,7 @@ export default function OnboardingScan() {
         <View className="items-center">
           {scanStep === 'group' ? (
             <>
-              <FontAwesome name="users" size={24} color="#0284c7" />
+              <FontAwesome name="users" size={24} color="#60a5fa" />
               <Text className="text-xl font-semibold text-white mt-2">
                 Scan Group Credential
               </Text>
@@ -283,7 +283,7 @@ export default function OnboardingScan() {
             </>
           ) : (
             <>
-              <FontAwesome name="key" size={24} color="#0284c7" />
+              <FontAwesome name="key" size={24} color="#60a5fa" />
               <Text className="text-xl font-semibold text-white mt-2">
                 Scan Share Credential
               </Text>
@@ -315,7 +315,7 @@ export default function OnboardingScan() {
           onPress={() => router.push('/onboarding/manual')}
           className="mt-6 py-2"
         >
-          <Text className="text-frost-400 text-center">
+          <Text className="text-blue-400 text-center">
             Having trouble? Enter manually
           </Text>
         </Pressable>

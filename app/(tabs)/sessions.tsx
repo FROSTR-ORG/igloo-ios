@@ -59,7 +59,7 @@ export default function PeersTab() {
   }, []);
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50 dark:bg-gray-900" edges={['bottom']}>
+    <SafeAreaView className="flex-1 bg-gray-950" edges={['bottom']}>
       <ScrollView
         className="flex-1"
         contentContainerClassName="p-4"
@@ -71,9 +71,9 @@ export default function PeersTab() {
         <Card className="mb-4">
           <View className="flex-row items-center justify-between">
             <View>
-              <Text className="text-sm text-gray-500 dark:text-gray-400">Peers in Group</Text>
+              <Text className="text-sm text-gray-400">Peers in Group</Text>
               <View className="flex-row items-center mt-1">
-                <Text className="text-2xl font-bold text-gray-900 dark:text-white">
+                <Text className="text-2xl font-bold text-gray-100">
                   {totalCount}
                 </Text>
                 {isRunning && (
@@ -93,7 +93,7 @@ export default function PeersTab() {
               size="sm"
               loading={isPinging}
               disabled={!isRunning}
-              icon={<FontAwesome name="wifi" size={14} color="#374151" />}
+              icon={<FontAwesome name="wifi" size={14} color="#9ca3af" />} // gray-400
               onPress={handlePingAll}
             />
           </View>
@@ -106,29 +106,29 @@ export default function PeersTab() {
 
         {/* Self Info */}
         {selfPubkey && (
-          <Card className="mb-4 bg-frost-50 dark:bg-frost-900/20">
+          <Card className="mb-4 bg-blue-900/20">
             <View className="flex-row items-center">
-              <View className="w-10 h-10 bg-frost-200 dark:bg-frost-800 rounded-full items-center justify-center mr-3">
-                <FontAwesome name="user" size={18} color="#0284c7" />
+              <View className="w-10 h-10 bg-blue-800 rounded-full items-center justify-center mr-3">
+                <FontAwesome name="user" size={18} color="#60a5fa" />
               </View>
               <View className="flex-1">
-                <Text className="text-xs text-frost-600 dark:text-frost-400 mb-0.5">
+                <Text className="text-xs text-blue-400 mb-0.5">
                   Your Share
                 </Text>
                 <Pressable onPress={() => handleCopyPubkey(selfPubkey)}>
-                  <Text className="text-sm font-mono text-frost-800 dark:text-frost-200">
+                  <Text className="text-sm font-mono text-blue-200">
                     {truncatePubkey(selfPubkey)}
                   </Text>
                 </Pressable>
               </View>
-              <FontAwesome name="check-circle" size={20} color="#0284c7" />
+              <FontAwesome name="check-circle" size={20} color="#60a5fa" />
             </View>
           </Card>
         )}
 
         {/* Peer List */}
         <View className="mb-2">
-          <Text className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">
+          <Text className="text-sm font-medium text-gray-400 mb-2">
             Other Peers
           </Text>
         </View>
@@ -137,10 +137,10 @@ export default function PeersTab() {
           <Card>
             <View className="py-8 items-center">
               <FontAwesome name="users" size={32} color="#9ca3af" />
-              <Text className="text-gray-500 dark:text-gray-400 mt-2">
+              <Text className="text-gray-400 mt-2">
                 No peers found
               </Text>
-              <Text className="text-sm text-gray-400 dark:text-gray-500 mt-1">
+              <Text className="text-sm text-gray-500 mt-1">
                 Add credentials to see your signing group
               </Text>
             </View>
@@ -161,10 +161,10 @@ export default function PeersTab() {
 
         {/* Info Card */}
         {!isRunning && peers.length > 0 && (
-          <Card className="mt-4 bg-yellow-50 dark:bg-yellow-900/20">
+          <Card className="mt-4 bg-yellow-900/20">
             <View className="flex-row items-start">
-              <FontAwesome name="info-circle" size={16} color="#ca8a04" />
-              <Text className="flex-1 ml-2 text-sm text-yellow-700 dark:text-yellow-400">
+              <FontAwesome name="info-circle" size={16} color="#eab308" />
+              <Text className="flex-1 ml-2 text-sm text-yellow-400">
                 Start the signer to ping peers and update their status in real-time.
               </Text>
             </View>
@@ -211,15 +211,16 @@ function PeerCard({
         <View
           className={`w-10 h-10 rounded-full items-center justify-center mr-3 ${
             peer.status === 'online'
-              ? 'bg-green-100 dark:bg-green-900/30'
+              ? 'bg-green-900/30'
               : peer.status === 'offline'
-                ? 'bg-red-100 dark:bg-red-900/30'
-                : 'bg-gray-100 dark:bg-gray-800'
+                ? 'bg-red-900/30'
+                : 'bg-gray-800'
           }`}
         >
           <FontAwesome
             name="user"
             size={18}
+            // Tailwind colors: green-500, red-500, gray-400
             color={
               peer.status === 'online'
                 ? '#22c55e'
@@ -230,15 +231,20 @@ function PeerCard({
           />
         </View>
         <View className="flex-1">
+          {peer.displayName && (
+            <Text className="text-sm font-medium text-gray-100 mb-0.5">
+              {peer.displayName}
+            </Text>
+          )}
           <Pressable onPress={() => onCopyPubkey(peer.pubkey)}>
-            <Text className="text-sm font-mono text-gray-900 dark:text-white">
+            <Text className={`text-sm font-mono ${peer.displayName ? 'text-gray-400' : 'text-gray-100'}`}>
               {truncatePubkey(peer.pubkey)}
             </Text>
           </Pressable>
           <View className="flex-row items-center mt-1">
             {getStatusBadge()}
             {peer.latency !== null && peer.status === 'online' && (
-              <Text className="text-xs text-gray-500 dark:text-gray-400 ml-2">
+              <Text className="text-xs text-gray-400 ml-2">
                 {peer.latency}ms
               </Text>
             )}
@@ -252,14 +258,14 @@ function PeerCard({
         <FontAwesome
           name={expanded ? 'chevron-up' : 'chevron-down'}
           size={14}
-          color="#9ca3af"
+          color="#9ca3af" // gray-400
         />
       </Pressable>
 
       {/* Expanded Section - Policies */}
       {expanded && (
-        <View className="px-4 pb-4 pt-2 border-t border-gray-100 dark:border-gray-700">
-          <Text className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-3">
+        <View className="px-4 pb-4 pt-2 border-t border-blue-900/30">
+          <Text className="text-xs font-medium text-gray-400 mb-3">
             Policy Settings
           </Text>
           <View className="space-y-3">

@@ -23,14 +23,14 @@ export function Switch({
             <Text
               className={`
                 text-base font-medium
-                ${disabled ? 'text-gray-400 dark:text-gray-500' : 'text-gray-900 dark:text-gray-100'}
+                ${disabled ? 'text-gray-500' : 'text-gray-100'}
               `}
             >
               {label}
             </Text>
           )}
           {description && (
-            <Text className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+            <Text className="text-sm text-gray-400 mt-0.5">
               {description}
             </Text>
           )}
@@ -40,12 +40,13 @@ export function Switch({
         value={value}
         onValueChange={onValueChange}
         disabled={disabled}
+        // RNSwitch requires hex values - mapped from Tailwind colors
         trackColor={{
-          false: '#d1d5db',
-          true: '#0284c7',
+          false: '#374151', // Tailwind gray-700
+          true: '#2563eb',  // Tailwind blue-600 (igloo-button primary)
         }}
-        thumbColor={value ? '#ffffff' : '#f4f4f5'}
-        ios_backgroundColor="#d1d5db"
+        thumbColor={value ? '#ffffff' : '#6b7280'} // white : Tailwind gray-500
+        ios_backgroundColor="#374151" // Tailwind gray-700
         {...props}
       />
     </View>

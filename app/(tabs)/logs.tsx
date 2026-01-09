@@ -75,12 +75,12 @@ export default function LogsTab() {
   const keyExtractor = useCallback((item: LogEntry) => item.id, []);
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50 dark:bg-gray-900" edges={['bottom']}>
+    <SafeAreaView className="flex-1 bg-gray-950" edges={['bottom']}>
       {/* Filter Bar */}
-      <View className="px-4 pt-2 pb-3 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+      <View className="px-4 pt-2 pb-3 border-b border-blue-900/30 bg-gray-900">
         {/* Level Filters */}
         <View className="flex-row items-center mb-2">
-          <Text className="text-xs text-gray-500 dark:text-gray-400 mr-2 w-12">Level</Text>
+          <Text className="text-xs text-gray-400 mr-2 w-12">Level</Text>
           <View className="flex-row flex-wrap gap-1">
             {LOG_LEVELS.map((level) => (
               <FilterChip
@@ -96,7 +96,7 @@ export default function LogsTab() {
 
         {/* Category Filters */}
         <View className="flex-row items-center">
-          <Text className="text-xs text-gray-500 dark:text-gray-400 mr-2 w-12">Type</Text>
+          <Text className="text-xs text-gray-400 mr-2 w-12">Type</Text>
           <View className="flex-row flex-wrap gap-1">
             {LOG_CATEGORIES.map((category) => (
               <FilterChip
@@ -121,8 +121,8 @@ export default function LogsTab() {
         ListEmptyComponent={
           <View className="py-12 items-center">
             <FontAwesome name="file-text-o" size={32} color="#9ca3af" />
-            <Text className="text-gray-500 dark:text-gray-400 mt-2">No log entries</Text>
-            <Text className="text-sm text-gray-400 dark:text-gray-500 mt-1">
+            <Text className="text-gray-400 mt-2">No log entries</Text>
+            <Text className="text-sm text-gray-500 mt-1">
               Events will appear here as they occur
             </Text>
           </View>
@@ -130,7 +130,7 @@ export default function LogsTab() {
       />
 
       {/* Bottom Actions */}
-      <View className="px-4 py-3 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex-row items-center justify-between">
+      <View className="px-4 py-3 border-t border-blue-900/30 bg-gray-900 flex-row items-center justify-between">
         <View className="flex-row items-center">
           <Pressable
             onPress={() => setAutoScroll(!autoScroll)}
@@ -139,9 +139,9 @@ export default function LogsTab() {
             <FontAwesome
               name={autoScroll ? 'check-square-o' : 'square-o'}
               size={18}
-              color={autoScroll ? '#0284c7' : '#9ca3af'}
+              color={autoScroll ? '#60a5fa' : '#9ca3af'} // blue-400 : gray-400
             />
-            <Text className="text-sm text-gray-600 dark:text-gray-400 ml-2">Auto-scroll</Text>
+            <Text className="text-sm text-gray-400 ml-2">Auto-scroll</Text>
           </Pressable>
           <Text className="text-sm text-gray-400 ml-4">
             {filteredEntries.length} / {entries.length} entries
@@ -177,15 +177,15 @@ function FilterChip({
         px-2 py-1 rounded
         ${active
           ? variant === 'error'
-            ? 'bg-red-100 dark:bg-red-900/30'
+            ? 'bg-red-900/30'
             : variant === 'warning'
-              ? 'bg-yellow-100 dark:bg-yellow-900/30'
+              ? 'bg-yellow-900/30'
               : variant === 'info'
-                ? 'bg-blue-100 dark:bg-blue-900/30'
+                ? 'bg-blue-900/30'
                 : variant === 'success'
-                  ? 'bg-green-100 dark:bg-green-900/30'
-                  : 'bg-frost-100 dark:bg-frost-900/30'
-          : 'bg-gray-100 dark:bg-gray-700'
+                  ? 'bg-green-900/30'
+                  : 'bg-blue-900/30'
+          : 'bg-gray-800'
         }
       `}
     >
@@ -194,15 +194,15 @@ function FilterChip({
           text-xs capitalize
           ${active
             ? variant === 'error'
-              ? 'text-red-700 dark:text-red-400'
+              ? 'text-red-400'
               : variant === 'warning'
-                ? 'text-yellow-700 dark:text-yellow-400'
+                ? 'text-yellow-400'
                 : variant === 'info'
-                  ? 'text-blue-700 dark:text-blue-400'
+                  ? 'text-blue-400'
                   : variant === 'success'
-                    ? 'text-green-700 dark:text-green-400'
-                    : 'text-frost-700 dark:text-frost-400'
-            : 'text-gray-500 dark:text-gray-400'
+                    ? 'text-green-400'
+                    : 'text-blue-400'
+            : 'text-gray-400'
           }
         `}
       >
@@ -257,12 +257,12 @@ function LogEntryItem({
             </View>
 
             {/* Message */}
-            <Text className="text-sm text-gray-900 dark:text-white">{entry.message}</Text>
+            <Text className="text-sm text-gray-100">{entry.message}</Text>
 
             {/* Expanded Data */}
             {expanded && hasData && (
-              <View className="mt-2 p-2 bg-gray-50 dark:bg-gray-800 rounded">
-                <Text className="text-xs font-mono text-gray-600 dark:text-gray-400">
+              <View className="mt-2 p-2 bg-gray-800 rounded">
+                <Text className="text-xs font-mono text-gray-400">
                   {JSON.stringify(entry.data, null, 2)}
                 </Text>
               </View>
@@ -287,16 +287,17 @@ function getLevelIcon(level: LogLevel): React.ComponentProps<typeof FontAwesome>
   }
 }
 
+// Returns Tailwind color hex values for RN components
 function getLevelColor(level: LogLevel): string {
   switch (level) {
     case 'error':
-      return '#ef4444';
+      return '#ef4444'; // red-500
     case 'warn':
-      return '#f59e0b';
+      return '#f59e0b'; // amber-500
     case 'info':
-      return '#3b82f6';
+      return '#3b82f6'; // blue-500
     default:
-      return '#9ca3af';
+      return '#9ca3af'; // gray-400
   }
 }
 

@@ -2,7 +2,6 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Tabs } from 'expo-router';
 
 import Colors from '@/constants/Colors';
-import { useColorScheme } from '@/components/useColorScheme';
 
 function TabBarIcon(props: {
   name: React.ComponentProps<typeof FontAwesome>['name'];
@@ -12,15 +11,28 @@ function TabBarIcon(props: {
 }
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
-
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
+        tabBarActiveTintColor: Colors.tabIconSelected,
+        tabBarInactiveTintColor: Colors.tabIconDefault,
+        tabBarStyle: {
+          backgroundColor: Colors.tabBackground,
+          borderTopColor: Colors.border,
+        },
+        headerStyle: {
+          backgroundColor: Colors.backgroundSecondary,
+        },
+        headerTintColor: Colors.text,
         headerShown: true,
       }}
     >
+      <Tabs.Screen
+        name="index"
+        options={{
+          href: null, // Hide from tab bar - only used for redirect
+        }}
+      />
       <Tabs.Screen
         name="signer"
         options={{

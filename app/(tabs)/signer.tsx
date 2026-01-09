@@ -1,8 +1,9 @@
-import { useState, useEffect, useCallback } from 'react';
-import { View, Text, ScrollView, Alert } from 'react-native';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { View, Text, ScrollView, Alert, Animated, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import * as Haptics from 'expo-haptics';
+import * as Clipboard from 'expo-clipboard';
 import { Button, Card, Badge } from '@/components/ui';
 import { useSigner } from '@/hooks';
 import type { SignerStatus } from '@/types';
@@ -57,18 +58,25 @@ export default function SignerTab() {
     }
   }, [isRunning, start, stop]);
 
+  const handleCopyPubkey = useCallback(async () => {
+    if (shareDetails?.groupPubkey) {
+      await Clipboard.setStringAsync(shareDetails.groupPubkey);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+  }, [shareDetails?.groupPubkey]);
+
   return (
-    <SafeAreaView className="flex-1 bg-gray-50 dark:bg-gray-900" edges={['bottom']}>
+    <SafeAreaView className="flex-1 bg-gray-950" edges={['bottom']}>
       <ScrollView className="flex-1" contentContainerClassName="p-4">
         {/* Status Card */}
         <Card variant="elevated" className="mb-4">
           <View className="items-center py-4">
             <StatusIndicator status={status} />
-            <Text className="text-2xl font-bold text-gray-900 dark:text-white mt-4">
+            <Text className="text-2xl font-bold text-gray-100 mt-4">
               {getStatusText(status)}
             </Text>
             {lastError && (
-              <Text className="text-sm text-red-500 mt-2 text-center">
+              <Text className="text-sm text-red-400 mt-2 text-center">
                 {lastError}
               </Text>
             )}
@@ -89,26 +97,40 @@ export default function SignerTab() {
         {shareDetails && (
           <Card className="mb-4">
             <View className="flex-row items-center mb-3">
-              <FontAwesome name="key" size={16} color="#6b7280" />
-              <Text className="text-sm font-medium text-gray-500 dark:text-gray-400 ml-2">
+              <FontAwesome name="key" size={16} color="#9ca3af" />
+              <Text className="text-sm font-medium text-gray-400 ml-2">
                 Share Information
               </Text>
             </View>
-            <View className="flex-row justify-between">
+            <View className="flex-row justify-between mb-3">
               <InfoItem label="Share Index" value={`#${shareDetails.idx}`} />
               <InfoItem
                 label="Threshold"
                 value={`${shareDetails.threshold}-of-${shareDetails.totalMembers}`}
               />
             </View>
+            {shareDetails.groupPubkey && (
+              <Pressable
+                onPress={handleCopyPubkey}
+                className="flex-row items-center justify-between pt-3 border-t border-blue-900/30"
+              >
+                <View className="flex-1">
+                  <Text className="text-xs text-gray-400 mb-1">Group Pubkey</Text>
+                  <Text className="text-sm font-mono text-gray-100">
+                    {truncatePubkey(shareDetails.groupPubkey)}
+                  </Text>
+                </View>
+                <FontAwesome name="copy" size={14} color="#9ca3af" />
+              </Pressable>
+            )}
           </Card>
         )}
 
         {/* Stats Card */}
         <Card className="mb-4">
           <View className="flex-row items-center mb-3">
-            <FontAwesome name="bar-chart" size={16} color="#6b7280" />
-            <Text className="text-sm font-medium text-gray-500 dark:text-gray-400 ml-2">
+            <FontAwesome name="bar-chart" size={16} color="#9ca3af" />
+            <Text className="text-sm font-medium text-gray-400 ml-2">
               Session Statistics
             </Text>
           </View>
@@ -132,8 +154,8 @@ export default function SignerTab() {
         <Card>
           <View className="flex-row items-center justify-between mb-3">
             <View className="flex-row items-center">
-              <FontAwesome name="history" size={16} color="#6b7280" />
-              <Text className="text-sm font-medium text-gray-500 dark:text-gray-400 ml-2">
+              <FontAwesome name="history" size={16} color="#9ca3af" />
+              <Text className="text-sm font-medium text-gray-400 ml-2">
                 Recent Activity
               </Text>
             </View>
@@ -145,7 +167,7 @@ export default function SignerTab() {
           {recentRequests.length === 0 ? (
             <View className="py-8 items-center">
               <FontAwesome name="inbox" size={32} color="#9ca3af" />
-              <Text className="text-gray-500 dark:text-gray-400 mt-2">
+              <Text className="text-gray-400 mt-2">
                 {isRunning ? 'Waiting for requests...' : 'Start signer to receive requests'}
               </Text>
             </View>
@@ -157,14 +179,14 @@ export default function SignerTab() {
                   className={`flex-row items-center justify-between py-2 ${
                     index === arr.length - 1
                       ? ''
-                      : 'border-b border-gray-100 dark:border-gray-700'
+                      : 'border-b border-blue-900/30'
                   }`}
                 >
                   <View className="flex-1">
-                    <Text className="text-sm text-gray-900 dark:text-white">
+                    <Text className="text-sm text-gray-100">
                       {truncatePubkey(request.pubkey)}
                     </Text>
-                    <Text className="text-xs text-gray-500 dark:text-gray-400">
+                    <Text className="text-xs text-gray-400">
                       {formatTime(request.timestamp)}
                     </Text>
                   </View>
@@ -190,6 +212,42 @@ export default function SignerTab() {
 }
 
 function StatusIndicator({ status }: { status: SignerStatus }) {
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const animationRef = useRef<Animated.CompositeAnimation | null>(null);
+
+  useEffect(() => {
+    if (status === 'running') {
+      // Start pulse animation when running
+      animationRef.current = Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, {
+            toValue: 1.08,
+            duration: 750,
+            useNativeDriver: true,
+          }),
+          Animated.timing(pulseAnim, {
+            toValue: 1,
+            duration: 750,
+            useNativeDriver: true,
+          }),
+        ])
+      );
+      animationRef.current.start();
+    } else {
+      // Stop animation and reset
+      if (animationRef.current) {
+        animationRef.current.stop();
+      }
+      pulseAnim.setValue(1);
+    }
+
+    return () => {
+      if (animationRef.current) {
+        animationRef.current.stop();
+      }
+    };
+  }, [status, pulseAnim]);
+
   const getStatusColor = () => {
     switch (status) {
       case 'running':
@@ -199,7 +257,7 @@ function StatusIndicator({ status }: { status: SignerStatus }) {
       case 'error':
         return 'bg-red-500';
       default:
-        return 'bg-gray-400';
+        return 'bg-gray-500';
     }
   };
 
@@ -217,17 +275,19 @@ function StatusIndicator({ status }: { status: SignerStatus }) {
   };
 
   return (
-    <View className={`w-20 h-20 rounded-full items-center justify-center ${getStatusColor()}`}>
-      <FontAwesome name={getStatusIcon()} size={36} color="white" />
-    </View>
+    <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
+      <View className={`w-20 h-20 rounded-full items-center justify-center ${getStatusColor()}`}>
+        <FontAwesome name={getStatusIcon()} size={36} color="white" />
+      </View>
+    </Animated.View>
   );
 }
 
 function InfoItem({ label, value }: { label: string; value: string }) {
   return (
     <View className="items-center">
-      <Text className="text-xs text-gray-500 dark:text-gray-400 mb-1">{label}</Text>
-      <Text className="text-lg font-semibold text-gray-900 dark:text-white">{value}</Text>
+      <Text className="text-xs text-gray-400 mb-1">{label}</Text>
+      <Text className="text-lg font-semibold text-gray-100">{value}</Text>
     </View>
   );
 }

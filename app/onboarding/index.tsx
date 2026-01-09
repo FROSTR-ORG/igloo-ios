@@ -6,24 +6,24 @@ import { Button } from '@/components/ui';
 
 export default function OnboardingWelcome() {
   return (
-    <SafeAreaView className="flex-1 bg-white dark:bg-gray-900">
+    <SafeAreaView className="flex-1 bg-gray-950">
       <View className="flex-1 px-6 pt-12 pb-8">
         {/* Header */}
         <View className="items-center mb-12">
-          <View className="w-24 h-24 bg-frost-100 dark:bg-frost-900/30 rounded-full items-center justify-center mb-6">
-            <FontAwesome name="snowflake-o" size={48} color="#0284c7" />
+          <View className="w-24 h-24 bg-blue-900/30 rounded-full items-center justify-center mb-6">
+            <FontAwesome name="snowflake-o" size={48} color="#60a5fa" />
           </View>
-          <Text className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+          <Text className="text-3xl font-bold text-gray-100 mb-2">
             Welcome to Igloo
           </Text>
-          <Text className="text-lg text-gray-600 dark:text-gray-400 text-center">
+          <Text className="text-lg text-gray-400 text-center">
             FROST threshold signing for Nostr
           </Text>
         </View>
 
         {/* Description */}
         <View className="mb-12">
-          <Text className="text-base text-gray-600 dark:text-gray-400 text-center leading-6">
+          <Text className="text-base text-gray-400 text-center leading-6">
             Igloo turns your device into a secure signing node for distributed key management.
             Import your share to start signing requests from your peers.
           </Text>
@@ -60,7 +60,7 @@ export default function OnboardingWelcome() {
             title="Enter Manually"
             variant="secondary"
             size="lg"
-            icon={<FontAwesome name="keyboard-o" size={20} color="#374151" />}
+            icon={<FontAwesome name="keyboard-o" size={20} color="#9ca3af" />} // gray-400
             onPress={() => router.push('/onboarding/manual')}
           />
         </View>
@@ -80,14 +80,14 @@ function FeatureItem({
 }) {
   return (
     <View className="flex-row items-start">
-      <View className="w-10 h-10 bg-frost-100 dark:bg-frost-900/30 rounded-lg items-center justify-center mr-4">
-        <FontAwesome name={icon} size={18} color="#0284c7" />
+      <View className="w-10 h-10 bg-blue-900/30 rounded-lg items-center justify-center mr-4">
+        <FontAwesome name={icon} size={18} color="#60a5fa" />
       </View>
       <View className="flex-1">
-        <Text className="text-base font-semibold text-gray-900 dark:text-white mb-0.5">
+        <Text className="text-base font-semibold text-gray-100 mb-0.5">
           {title}
         </Text>
-        <Text className="text-sm text-gray-600 dark:text-gray-400">
+        <Text className="text-sm text-gray-400">
           {description}
         </Text>
       </View>
