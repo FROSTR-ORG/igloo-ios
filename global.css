@@ -4,37 +4,29 @@
 
 /* Igloo Design System - Custom Component Classes */
 @layer components {
-  /* Card styles with glassmorphism - using gray-800 for lighter appearance */
+  /* Background gradient - matches igloo-desktop */
+  /* Note: React Native doesn't support CSS gradients directly,
+     use expo-linear-gradient for actual gradient backgrounds */
+  .igloo-bg-gradient {
+    @apply bg-gray-950;
+    /* Fallback for web: bg-gradient-to-br from-gray-950 to-blue-950 */
+  }
+
+  /* Card styles with glassmorphism - using 40% opacity to match desktop */
   .igloo-card {
-    @apply rounded-lg border border-blue-900/30 bg-gray-800/50 shadow-lg;
+    @apply rounded-lg border border-blue-900/30 bg-gray-900/40 shadow-lg;
   }
 
   .igloo-card-elevated {
-    @apply rounded-lg border border-blue-900/30 bg-gray-800/60 shadow-lg;
+    @apply rounded-lg border border-blue-900/30 bg-gray-900/50 shadow-lg;
   }
 
   .igloo-card-glass {
-    @apply rounded-lg border border-blue-900/30 bg-gray-800/40 shadow-lg;
+    @apply rounded-lg border border-blue-900/30 bg-gray-900/40 shadow-lg;
   }
 
-  /* Pulse animation for status indicators (web reference - RN uses Animated API) */
-  @keyframes pulse-glow {
-    0% {
-      opacity: 1;
-      transform: scale(1);
-    }
-    50% {
-      opacity: 0.8;
-      transform: scale(1.08);
-    }
-    100% {
-      opacity: 1;
-      transform: scale(1);
-    }
-  }
-
-  .pulse-animation {
-    animation: pulse-glow 1.5s ease-in-out infinite;
+  .igloo-card-outlined {
+    @apply rounded-lg border border-gray-700/30 bg-transparent;
   }
 
   /* Button styles */
@@ -62,7 +54,7 @@
     @apply bg-transparent border border-blue-600 text-blue-400;
   }
 
-  /* Badge styles with ring-inset */
+  /* Badge styles with subtle border */
   .igloo-badge {
     @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium;
   }
@@ -85,6 +77,39 @@
 
   .igloo-badge-info {
     @apply bg-blue-500/20 text-blue-400 border border-blue-500/30;
+  }
+
+  .igloo-badge-purple {
+    @apply bg-purple-500/20 text-purple-400 border border-purple-500/30;
+  }
+
+  .igloo-badge-orange {
+    @apply bg-orange-500/20 text-orange-400 border border-orange-500/30;
+  }
+
+  /* Status dot colors - solid dots matching desktop */
+  .igloo-status-dot {
+    @apply w-2 h-2 rounded-full;
+  }
+
+  .igloo-status-success {
+    @apply bg-green-500;
+  }
+
+  .igloo-status-error {
+    @apply bg-red-500;
+  }
+
+  .igloo-status-warning {
+    @apply bg-yellow-500;
+  }
+
+  .igloo-status-info {
+    @apply bg-blue-500;
+  }
+
+  .igloo-status-idle {
+    @apply bg-gray-500;
   }
 
   /* Text color utilities */
@@ -123,6 +148,41 @@
   }
 
   .igloo-bg-card {
-    @apply bg-gray-800/50;
+    @apply bg-gray-900/40;
   }
+
+  /* Section divider */
+  .igloo-divider {
+    @apply border-t border-gray-700/30;
+  }
+
+  .igloo-divider-blue {
+    @apply border-t border-blue-900/30;
+  }
+
+  /* IconButton styles */
+  .igloo-icon-button {
+    @apply rounded-lg items-center justify-center;
+  }
+
+  .igloo-icon-button-ghost {
+    @apply bg-transparent;
+  }
+
+  .igloo-icon-button-default {
+    @apply bg-gray-800;
+  }
+
+  .igloo-icon-button-destructive {
+    @apply bg-red-900/30;
+  }
+
+  .igloo-icon-button-success {
+    @apply bg-green-900/30;
+  }
+
+  .igloo-icon-button-outline {
+    @apply bg-transparent border border-blue-900/30;
+  }
+
 }

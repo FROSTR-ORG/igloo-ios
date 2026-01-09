@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { View, Text, ScrollView, Alert, Pressable, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
+import { ArrowLeft, Info, ClipboardPaste } from 'lucide-react-native';
 import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
 import { Button, Input, Card } from '@/components/ui';
@@ -120,7 +120,7 @@ export default function OnboardingManual() {
             onPress={() => router.back()}
             className="w-10 h-10 items-center justify-center -ml-2"
           >
-            <FontAwesome name="arrow-left" size={18} color="#9ca3af" />
+            <ArrowLeft size={18} color="#9ca3af" strokeWidth={2} />
           </Pressable>
           <Text className="flex-1 text-lg font-semibold text-gray-100 text-center mr-10">
             Enter Credentials
@@ -135,7 +135,7 @@ export default function OnboardingManual() {
           {/* Info Card */}
           <Card variant="outlined" className="mb-6 bg-blue-900/20 border-blue-800">
             <View className="flex-row items-start">
-              <FontAwesome name="info-circle" size={18} color="#60a5fa" />
+              <Info size={18} color="#60a5fa" strokeWidth={2} />
               <Text className="flex-1 ml-3 text-sm text-blue-300">
                 Enter your share and group credentials exactly as they were provided to you.
                 These typically start with "bfshare" and "bfgroup".
@@ -153,7 +153,7 @@ export default function OnboardingManual() {
                 onPress={() => handlePaste('share')}
                 className="flex-row items-center px-2 py-1"
               >
-                <FontAwesome name="clipboard" size={14} color="#60a5fa" />
+                <ClipboardPaste size={14} color="#60a5fa" strokeWidth={2} />
                 <Text className="text-blue-400 text-sm ml-1">Paste</Text>
               </Pressable>
             </View>
@@ -182,7 +182,7 @@ export default function OnboardingManual() {
                 onPress={() => handlePaste('group')}
                 className="flex-row items-center px-2 py-1"
               >
-                <FontAwesome name="clipboard" size={14} color="#60a5fa" />
+                <ClipboardPaste size={14} color="#60a5fa" strokeWidth={2} />
                 <Text className="text-blue-400 text-sm ml-1">Paste</Text>
               </Pressable>
             </View>

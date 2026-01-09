@@ -1,6 +1,6 @@
 import { Badge, Button } from '@/components/ui';
 import { useCredentials } from '@/hooks';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
+import { Camera, ArrowLeft, Check, Users, Key } from 'lucide-react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
@@ -186,7 +186,7 @@ export default function OnboardingScan() {
     return (
       <SafeAreaView className="flex-1 bg-gray-950">
         <View className="flex-1 px-6 items-center justify-center">
-          <FontAwesome name="camera" size={48} color="#9ca3af" />
+          <Camera size={48} color="#9ca3af" strokeWidth={1.5} />
           <Text className="text-lg font-semibold text-gray-100 mt-4 mb-2">
             Camera Access Required
           </Text>
@@ -220,7 +220,7 @@ export default function OnboardingScan() {
             onPress={() => router.back()}
             className="w-10 h-10 bg-black/50 rounded-full items-center justify-center"
           >
-            <FontAwesome name="arrow-left" size={18} color="white" />
+            <ArrowLeft size={18} color="white" strokeWidth={2} />
           </Pressable>
           <Badge
             label={scanStep === 'share' ? 'Step 2/2' : 'Step 1/2'}
@@ -255,7 +255,7 @@ export default function OnboardingScan() {
         >
           <View className="items-center px-8">
             <View className="w-20 h-20 rounded-full bg-green-500 items-center justify-center mb-6">
-              <FontAwesome name="check" size={40} color="white" />
+              <Check size={40} color="white" strokeWidth={2} />
             </View>
             <Text className="text-2xl font-bold text-white text-center mb-2">
               Group Credential Captured!
@@ -273,7 +273,7 @@ export default function OnboardingScan() {
         <View className="items-center">
           {scanStep === 'group' ? (
             <>
-              <FontAwesome name="users" size={24} color="#60a5fa" />
+              <Users size={24} color="#60a5fa" strokeWidth={2} />
               <Text className="text-xl font-semibold text-white mt-2">
                 Scan Group Credential
               </Text>
@@ -283,7 +283,7 @@ export default function OnboardingScan() {
             </>
           ) : (
             <>
-              <FontAwesome name="key" size={24} color="#60a5fa" />
+              <Key size={24} color="#60a5fa" strokeWidth={2} />
               <Text className="text-xl font-semibold text-white mt-2">
                 Scan Share Credential
               </Text>

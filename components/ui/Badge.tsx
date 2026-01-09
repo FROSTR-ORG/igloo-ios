@@ -1,6 +1,6 @@
 import { View, Text } from 'react-native';
 
-type BadgeVariant = 'default' | 'success' | 'warning' | 'error' | 'info';
+type BadgeVariant = 'default' | 'success' | 'warning' | 'error' | 'info' | 'purple' | 'orange';
 type BadgeSize = 'sm' | 'md';
 
 interface BadgeProps {
@@ -12,6 +12,7 @@ interface BadgeProps {
 }
 
 // Ring-inset style with 20% opacity backgrounds (dark-only, matches igloo design system)
+// Includes purple (for ecdh events) and orange (for sign events) to match desktop
 const variantStyles: Record<BadgeVariant, { bg: string; text: string; dot: string; ring: string }> = {
   default: {
     bg: 'bg-gray-500/20',
@@ -42,6 +43,18 @@ const variantStyles: Record<BadgeVariant, { bg: string; text: string; dot: strin
     text: 'text-blue-400',
     dot: 'bg-blue-500',
     ring: 'border border-blue-500/30',
+  },
+  purple: {
+    bg: 'bg-purple-500/20',
+    text: 'text-purple-400',
+    dot: 'bg-purple-500',
+    ring: 'border border-purple-500/30',
+  },
+  orange: {
+    bg: 'bg-orange-500/20',
+    text: 'text-orange-400',
+    dot: 'bg-orange-500',
+    ring: 'border border-orange-500/30',
   },
 };
 

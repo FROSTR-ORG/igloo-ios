@@ -1,4 +1,5 @@
 import { View, Text, Switch as RNSwitch, type SwitchProps as RNSwitchProps } from 'react-native';
+import Colors from '@/constants/Colors';
 
 interface SwitchProps extends Omit<RNSwitchProps, 'value' | 'onValueChange'> {
   label?: string;
@@ -40,13 +41,12 @@ export function Switch({
         value={value}
         onValueChange={onValueChange}
         disabled={disabled}
-        // RNSwitch requires hex values - mapped from Tailwind colors
         trackColor={{
-          false: '#374151', // Tailwind gray-700
-          true: '#2563eb',  // Tailwind blue-600 (igloo-button primary)
+          false: Colors.switchTrackOff,
+          true: Colors.switchTrackOn,
         }}
-        thumbColor={value ? '#ffffff' : '#6b7280'} // white : Tailwind gray-500
-        ios_backgroundColor="#374151" // Tailwind gray-700
+        thumbColor={value ? Colors.switchThumbOn : Colors.switchThumbOff}
+        ios_backgroundColor={Colors.switchTrackOff}
         {...props}
       />
     </View>

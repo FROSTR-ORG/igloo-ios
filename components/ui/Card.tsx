@@ -6,10 +6,10 @@ interface CardProps extends ViewProps {
 }
 
 const variantStyles: Record<string, string> = {
-  default: 'bg-gray-800/50 border border-blue-900/30',
-  outlined: 'bg-transparent border-2 border-blue-900/30',
-  elevated: 'bg-gray-800/60 border border-blue-900/30 shadow-lg',
-  glass: 'bg-gray-800/40 border border-blue-900/30 shadow-lg',
+  default: 'bg-gray-800/50 border border-gray-700/50 shadow-lg',
+  outlined: 'bg-transparent border-2 border-gray-700/50',
+  elevated: 'bg-gray-800/60 border border-gray-700/50 shadow-lg',
+  glass: 'bg-gray-800/40 border border-gray-700/50 shadow-lg',
 };
 
 const paddingStyles: Record<string, string> = {

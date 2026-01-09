@@ -1,14 +1,7 @@
-import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Tabs } from 'expo-router';
+import { Key, Users, List, Settings } from 'lucide-react-native';
 
 import Colors from '@/constants/Colors';
-
-function TabBarIcon(props: {
-  name: React.ComponentProps<typeof FontAwesome>['name'];
-  color: string;
-}) {
-  return <FontAwesome size={22} style={{ marginBottom: -3 }} {...props} />;
-}
 
 export default function TabLayout() {
   return (
@@ -37,28 +30,28 @@ export default function TabLayout() {
         name="signer"
         options={{
           title: 'Signer',
-          tabBarIcon: ({ color }) => <TabBarIcon name="key" color={color} />,
+          tabBarIcon: ({ color }) => <Key size={22} color={color} strokeWidth={2} />,
         }}
       />
       <Tabs.Screen
         name="sessions"
         options={{
           title: 'Peers',
-          tabBarIcon: ({ color }) => <TabBarIcon name="users" color={color} />,
+          tabBarIcon: ({ color }) => <Users size={22} color={color} strokeWidth={2} />,
         }}
       />
       <Tabs.Screen
         name="logs"
         options={{
           title: 'Logs',
-          tabBarIcon: ({ color }) => <TabBarIcon name="list-alt" color={color} />,
+          tabBarIcon: ({ color }) => <List size={22} color={color} strokeWidth={2} />,
         }}
       />
       <Tabs.Screen
         name="settings"
         options={{
           title: 'Settings',
-          tabBarIcon: ({ color }) => <TabBarIcon name="cog" color={color} />,
+          tabBarIcon: ({ color }) => <Settings size={22} color={color} strokeWidth={2} />,
         }}
       />
     </Tabs>

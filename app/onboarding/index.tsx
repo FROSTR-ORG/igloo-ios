@@ -1,7 +1,15 @@
 import { View, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
+import {
+  Snowflake,
+  Shield,
+  Users,
+  Lock,
+  QrCode,
+  Keyboard,
+  type LucideIcon,
+} from 'lucide-react-native';
 import { Button } from '@/components/ui';
 
 export default function OnboardingWelcome() {
@@ -11,7 +19,7 @@ export default function OnboardingWelcome() {
         {/* Header */}
         <View className="items-center mb-12">
           <View className="w-24 h-24 bg-blue-900/30 rounded-full items-center justify-center mb-6">
-            <FontAwesome name="snowflake-o" size={48} color="#60a5fa" />
+            <Snowflake size={48} color="#60a5fa" strokeWidth={1.5} />
           </View>
           <Text className="text-3xl font-bold text-gray-100 mb-2">
             Welcome to Igloo
@@ -32,17 +40,17 @@ export default function OnboardingWelcome() {
         {/* Features */}
         <View className="gap-4 mb-auto">
           <FeatureItem
-            icon="shield"
+            Icon={Shield}
             title="Secure Storage"
             description="Your credentials are encrypted and stored securely on your device"
           />
           <FeatureItem
-            icon="users"
+            Icon={Users}
             title="Peer Signing"
             description="Respond to signing requests from other key holders in your group"
           />
           <FeatureItem
-            icon="lock"
+            Icon={Lock}
             title="Threshold Security"
             description="No single device can sign alone - requires cooperation from peers"
           />
@@ -53,14 +61,14 @@ export default function OnboardingWelcome() {
           <Button
             title="Scan QR Code"
             size="lg"
-            icon={<FontAwesome name="qrcode" size={20} color="white" />}
+            icon={<QrCode size={20} color="white" strokeWidth={2} />}
             onPress={() => router.push('/onboarding/scan')}
           />
           <Button
             title="Enter Manually"
             variant="secondary"
             size="lg"
-            icon={<FontAwesome name="keyboard-o" size={20} color="#9ca3af" />} // gray-400
+            icon={<Keyboard size={20} color="#9ca3af" strokeWidth={2} />}
             onPress={() => router.push('/onboarding/manual')}
           />
         </View>
@@ -70,18 +78,18 @@ export default function OnboardingWelcome() {
 }
 
 function FeatureItem({
-  icon,
+  Icon,
   title,
   description,
 }: {
-  icon: React.ComponentProps<typeof FontAwesome>['name'];
+  Icon: LucideIcon;
   title: string;
   description: string;
 }) {
   return (
     <View className="flex-row items-start">
       <View className="w-10 h-10 bg-blue-900/30 rounded-lg items-center justify-center mr-4">
-        <FontAwesome name={icon} size={18} color="#60a5fa" />
+        <Icon size={18} color="#60a5fa" strokeWidth={2} />
       </View>
       <View className="flex-1">
         <Text className="text-base font-semibold text-gray-100 mb-0.5">

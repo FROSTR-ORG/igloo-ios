@@ -1,12 +1,35 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { View, Text, ScrollView, Alert, Animated, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
+import {
+  Key,
+  Copy,
+  Check,
+  BarChart3,
+  History,
+  Inbox,
+  CheckCircle,
+  Loader2,
+  AlertCircle,
+  Power,
+  Server,
+  FileKey,
+  User,
+} from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
-import * as Clipboard from 'expo-clipboard';
-import { Button, Card, Badge } from '@/components/ui';
-import { useSigner } from '@/hooks';
-import type { SignerStatus } from '@/types';
+import {
+  Button,
+  Card,
+  Badge,
+  HelpTooltip,
+  Collapsible,
+  CredentialDisplay,
+  CompactCredential,
+  GradientBackground,
+} from '@/components/ui';
+import { useSigner, useIgloo, useCopyFeedback } from '@/hooks';
+import { secureStorage } from '@/services/storage/secureStorage';
+import type { SignerStatus, Credentials } from '@/types';
 
 export default function SignerTab() {
   const {
@@ -24,7 +47,27 @@ export default function SignerTab() {
     getUptime,
   } = useSigner();
 
+  const { decodeGroupCredential, decodeShareCredential } = useIgloo();
+  const { copied: pubkeyCopied, copy: copyPubkey } = useCopyFeedback();
+
   const [uptime, setUptime] = useState(0);
+  const [credentials, setCredentials] = useState<Credentials | null>(null);
+  const [decodedGroup, setDecodedGroup] = useState<object | null>(null);
+  const [decodedShare, setDecodedShare] = useState<object | null>(null);
+
+  // Load credentials on mount
+  useEffect(() => {
+    async function loadCredentials() {
+      const creds = await secureStorage.getCredentials();
+      if (creds) {
+        setCredentials(creds);
+        // Decode credentials
+        setDecodedGroup(decodeGroupCredential(creds.group));
+        setDecodedShare(decodeShareCredential(creds.share));
+      }
+    }
+    loadCredentials();
+  }, [decodeGroupCredential, decodeShareCredential]);
 
   // Update uptime every second when running
   useEffect(() => {
@@ -60,160 +103,265 @@ export default function SignerTab() {
 
   const handleCopyPubkey = useCallback(async () => {
     if (shareDetails?.groupPubkey) {
-      await Clipboard.setStringAsync(shareDetails.groupPubkey);
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      await copyPubkey(shareDetails.groupPubkey);
     }
-  }, [shareDetails?.groupPubkey]);
+  }, [shareDetails?.groupPubkey, copyPubkey]);
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-950" edges={['bottom']}>
-      <ScrollView className="flex-1" contentContainerClassName="p-4">
-        {/* Status Card */}
-        <Card variant="elevated" className="mb-4">
-          <View className="items-center py-4">
-            <StatusIndicator status={status} />
-            <Text className="text-2xl font-bold text-gray-100 mt-4">
-              {getStatusText(status)}
-            </Text>
-            {lastError && (
-              <Text className="text-sm text-red-400 mt-2 text-center">
-                {lastError}
+    <GradientBackground>
+      <SafeAreaView className="flex-1" edges={['bottom']}>
+        <ScrollView className="flex-1" contentContainerClassName="p-4">
+          {/* Status Card */}
+          <Card variant="elevated" className="mb-4">
+            <View className="items-center py-4">
+              <SignerStatusIndicator status={status} />
+              <Text className="text-2xl font-bold text-gray-100 mt-4">
+                {getStatusText(status)}
               </Text>
-            )}
-          </View>
-
-          {/* Toggle Button */}
-          <Button
-            title={isRunning ? 'Stop Signer' : isConnecting ? 'Connecting...' : 'Start Signer'}
-            variant={isRunning ? 'danger' : 'primary'}
-            size="lg"
-            loading={isConnecting}
-            onPress={handleToggle}
-            className="mt-4"
-          />
-        </Card>
-
-        {/* Share Info Card */}
-        {shareDetails && (
-          <Card className="mb-4">
-            <View className="flex-row items-center mb-3">
-              <FontAwesome name="key" size={16} color="#9ca3af" />
-              <Text className="text-sm font-medium text-gray-400 ml-2">
-                Share Information
-              </Text>
+              {lastError && (
+                <Text className="text-sm text-red-400 mt-2 text-center">
+                  {lastError}
+                </Text>
+              )}
             </View>
-            <View className="flex-row justify-between mb-3">
-              <InfoItem label="Share Index" value={`#${shareDetails.idx}`} />
-              <InfoItem
-                label="Threshold"
-                value={`${shareDetails.threshold}-of-${shareDetails.totalMembers}`}
-              />
-            </View>
-            {shareDetails.groupPubkey && (
-              <Pressable
-                onPress={handleCopyPubkey}
-                className="flex-row items-center justify-between pt-3 border-t border-blue-900/30"
-              >
-                <View className="flex-1">
-                  <Text className="text-xs text-gray-400 mb-1">Group Pubkey</Text>
-                  <Text className="text-sm font-mono text-gray-100">
-                    {truncatePubkey(shareDetails.groupPubkey)}
+
+            {/* Toggle Button */}
+            <Button
+              title={isRunning ? 'Stop Signer' : isConnecting ? 'Connecting...' : 'Start Signer'}
+              variant={isRunning ? 'danger' : 'primary'}
+              size="lg"
+              loading={isConnecting}
+              onPress={handleToggle}
+              className="mt-4"
+            />
+          </Card>
+
+          {/* Share Info Card */}
+          {shareDetails && (
+            <Card className="mb-4">
+              <View className="flex-row items-center justify-between mb-3">
+                <View className="flex-row items-center">
+                  <Key size={16} color="#9ca3af" strokeWidth={2} />
+                  <Text className="text-sm font-medium text-gray-400 ml-2">
+                    Share Information
                   </Text>
                 </View>
-                <FontAwesome name="copy" size={14} color="#9ca3af" />
-              </Pressable>
-            )}
-          </Card>
-        )}
-
-        {/* Stats Card */}
-        <Card className="mb-4">
-          <View className="flex-row items-center mb-3">
-            <FontAwesome name="bar-chart" size={16} color="#9ca3af" />
-            <Text className="text-sm font-medium text-gray-400 ml-2">
-              Session Statistics
-            </Text>
-          </View>
-          <View className="flex-row justify-between">
-            <InfoItem
-              label="Uptime"
-              value={isRunning ? formatUptime(uptime) : '-'}
-            />
-            <InfoItem
-              label="Requests"
-              value={`${signingRequestsCompleted}/${signingRequestsReceived}`}
-            />
-            <InfoItem
-              label="Relays"
-              value={isRunning ? String(connectedRelays.length) : '-'}
-            />
-          </View>
-        </Card>
-
-        {/* Recent Activity */}
-        <Card>
-          <View className="flex-row items-center justify-between mb-3">
-            <View className="flex-row items-center">
-              <FontAwesome name="history" size={16} color="#9ca3af" />
-              <Text className="text-sm font-medium text-gray-400 ml-2">
-                Recent Activity
-              </Text>
-            </View>
-            {recentRequests.length > 0 && (
-              <Badge label={String(recentRequests.length)} size="sm" variant="info" />
-            )}
-          </View>
-
-          {recentRequests.length === 0 ? (
-            <View className="py-8 items-center">
-              <FontAwesome name="inbox" size={32} color="#9ca3af" />
-              <Text className="text-gray-400 mt-2">
-                {isRunning ? 'Waiting for requests...' : 'Start signer to receive requests'}
-              </Text>
-            </View>
-          ) : (
-            <View className="space-y-2">
-              {recentRequests.slice(0, 5).map((request, index, arr) => (
-                <View
-                  key={request.id}
-                  className={`flex-row items-center justify-between py-2 ${
-                    index === arr.length - 1
-                      ? ''
-                      : 'border-b border-blue-900/30'
-                  }`}
+                <HelpTooltip
+                  title="Share Info"
+                  content="Your share index and threshold information for this signing group. The threshold shows how many shares are needed to sign (e.g., 2-of-3 means 2 shares needed from 3 total)."
+                />
+              </View>
+              <View className="flex-row justify-between mb-3">
+                <InfoItem label="Share Index" value={`#${shareDetails.idx}`} />
+                <InfoItem
+                  label="Threshold"
+                  value={`${shareDetails.threshold}-of-${shareDetails.totalMembers}`}
+                />
+              </View>
+              {shareDetails.groupPubkey && (
+                <Pressable
+                  onPress={handleCopyPubkey}
+                  className="flex-row items-center justify-between pt-3 border-t border-gray-700/30"
                 >
-                  <View className="flex-1">
-                    <Text className="text-sm text-gray-100">
-                      {truncatePubkey(request.pubkey)}
-                    </Text>
-                    <Text className="text-xs text-gray-400">
-                      {formatTime(request.timestamp)}
+                  <View className="flex-row items-center flex-1">
+                    <User size={14} color="#9ca3af" strokeWidth={2} />
+                    <View className="ml-2 flex-1">
+                      <Text className="text-xs text-gray-400 mb-1">Group Pubkey</Text>
+                      <Text className="text-sm font-mono text-gray-100">
+                        {truncatePubkey(shareDetails.groupPubkey)}
+                      </Text>
+                    </View>
+                  </View>
+                  {pubkeyCopied ? (
+                    <Check size={14} color="#4ade80" strokeWidth={2} />
+                  ) : (
+                    <Copy size={14} color="#9ca3af" strokeWidth={2} />
+                  )}
+                </Pressable>
+              )}
+            </Card>
+          )}
+
+          {/* Credentials Section */}
+          {credentials && (
+            <Collapsible
+              title="Credentials"
+              icon={<FileKey size={16} color="#9ca3af" strokeWidth={2} />}
+              className="mb-4"
+              actions={
+                <HelpTooltip
+                  title="Credentials"
+                  content="Your group and share credentials. The group credential identifies your signing group and contains public information about all participants. The share credential is your secret share - keep it secure!"
+                  size={14}
+                />
+              }
+            >
+              <View className="space-y-3 mt-2">
+                {/* Group Credential */}
+                <CredentialDisplay
+                  label="Group Credential"
+                  credential={credentials.group}
+                  decodedData={decodedGroup || undefined}
+                  helpContent="The group credential (bfgroup) contains the group public key, threshold configuration, and commitments from all signers."
+                />
+
+                {/* Share Credential */}
+                <CredentialDisplay
+                  label="Share Credential"
+                  credential={credentials.share}
+                  decodedData={decodedShare || undefined}
+                  masked
+                  helpContent="Your share credential (bfshare) contains your secret signing share. Keep this secure and never share it with others."
+                />
+              </View>
+            </Collapsible>
+          )}
+
+          {/* Relay Status Section */}
+          <Card className="mb-4">
+            <View className="flex-row items-center justify-between mb-3">
+              <View className="flex-row items-center gap-2">
+                <Server size={16} color="#9ca3af" strokeWidth={2} />
+                <Text className="text-sm font-medium text-gray-400">
+                  Relay Status
+                </Text>
+                <HelpTooltip
+                  title="Relay Status"
+                  content="Nostr relays your signer is connected to. These relays facilitate communication with other signers in your group."
+                  size={14}
+                />
+              </View>
+              <Badge
+                label={isRunning ? `${connectedRelays.length} connected` : 'Offline'}
+                variant={isRunning && connectedRelays.length > 0 ? 'success' : 'default'}
+                size="sm"
+                dot
+              />
+            </View>
+            {isRunning && connectedRelays.length > 0 ? (
+              <View className="space-y-2">
+                {connectedRelays.map((relay, index) => (
+                  <View
+                    key={relay}
+                    className={`flex-row items-center py-2 ${
+                      index < connectedRelays.length - 1 ? 'border-b border-gray-800/50' : ''
+                    }`}
+                  >
+                    <View className="w-2 h-2 rounded-full bg-green-500 mr-2" />
+                    <Text className="text-sm font-mono text-gray-300 flex-1" numberOfLines={1}>
+                      {relay}
                     </Text>
                   </View>
-                  <Badge
-                    label={request.status}
-                    variant={
-                      request.status === 'completed'
-                        ? 'success'
-                        : request.status === 'failed'
-                          ? 'error'
-                          : 'warning'
-                    }
-                    size="sm"
-                  />
-                </View>
-              ))}
+                ))}
+              </View>
+            ) : (
+              <Text className="text-sm text-gray-500">
+                {isRunning ? 'Connecting to relays...' : 'Start signer to connect to relays'}
+              </Text>
+            )}
+          </Card>
+
+          {/* Stats Card */}
+          <Card className="mb-4">
+            <View className="flex-row items-center gap-2 mb-3">
+              <BarChart3 size={16} color="#9ca3af" strokeWidth={2} />
+              <Text className="text-sm font-medium text-gray-400">
+                Session Statistics
+              </Text>
+              <HelpTooltip
+                title="Session Statistics"
+                content="Statistics for your current signing session including uptime, requests processed, and relay connections."
+                size={14}
+              />
             </View>
-          )}
-        </Card>
-      </ScrollView>
-    </SafeAreaView>
+            <View className="flex-row justify-between">
+              <InfoItem
+                label="Uptime"
+                value={isRunning ? formatUptime(uptime) : '-'}
+              />
+              <InfoItem
+                label="Requests"
+                value={`${signingRequestsCompleted}/${signingRequestsReceived}`}
+              />
+              <InfoItem
+                label="Relays"
+                value={isRunning ? String(connectedRelays.length) : '-'}
+              />
+            </View>
+          </Card>
+
+          {/* Recent Activity */}
+          <Card>
+            <View className="flex-row items-center justify-between mb-3">
+              <View className="flex-row items-center gap-2">
+                <History size={16} color="#9ca3af" strokeWidth={2} />
+                <Text className="text-sm font-medium text-gray-400">
+                  Recent Activity
+                </Text>
+                <HelpTooltip
+                  title="Recent Activity"
+                  content="Recent signing requests received by your signer. Shows the requester's pubkey, timestamp, and completion status."
+                  size={14}
+                />
+              </View>
+              {recentRequests.length > 0 && (
+                <Badge label={String(recentRequests.length)} size="sm" variant="info" />
+              )}
+            </View>
+
+            {recentRequests.length === 0 ? (
+              <View className="py-8 items-center">
+                <Inbox size={32} color="#9ca3af" strokeWidth={1.5} />
+                <Text className="text-gray-400 mt-2">
+                  {isRunning ? 'Waiting for requests...' : 'Start signer to receive requests'}
+                </Text>
+              </View>
+            ) : (
+              <View className="space-y-2">
+                {recentRequests.slice(0, 5).map((request, index, arr) => (
+                  <View
+                    key={request.id}
+                    className={`flex-row items-center justify-between py-2 ${
+                      index === arr.length - 1
+                        ? ''
+                        : 'border-b border-gray-700/30'
+                    }`}
+                  >
+                    <View className="flex-1">
+                      <Text className="text-sm text-gray-100">
+                        {truncatePubkey(request.pubkey)}
+                      </Text>
+                      <Text className="text-xs text-gray-400">
+                        {formatTime(request.timestamp)}
+                      </Text>
+                    </View>
+                    <Badge
+                      label={request.status}
+                      variant={
+                        request.status === 'completed'
+                          ? 'success'
+                          : request.status === 'failed'
+                            ? 'error'
+                            : 'warning'
+                      }
+                      size="sm"
+                    />
+                  </View>
+                ))}
+              </View>
+            )}
+          </Card>
+        </ScrollView>
+      </SafeAreaView>
+    </GradientBackground>
   );
 }
 
-function StatusIndicator({ status }: { status: SignerStatus }) {
+function SignerStatusIndicator({ status }: { status: SignerStatus }) {
   const pulseAnim = useRef(new Animated.Value(1)).current;
+  const spinAnim = useRef(new Animated.Value(0)).current;
   const animationRef = useRef<Animated.CompositeAnimation | null>(null);
+  const spinAnimationRef = useRef<Animated.CompositeAnimation | null>(null);
 
   useEffect(() => {
     if (status === 'running') {
@@ -233,20 +381,37 @@ function StatusIndicator({ status }: { status: SignerStatus }) {
         ])
       );
       animationRef.current.start();
+    } else if (status === 'connecting') {
+      // Start spin animation when connecting
+      spinAnimationRef.current = Animated.loop(
+        Animated.timing(spinAnim, {
+          toValue: 1,
+          duration: 1000,
+          useNativeDriver: true,
+        })
+      );
+      spinAnimationRef.current.start();
     } else {
-      // Stop animation and reset
+      // Stop animations and reset
       if (animationRef.current) {
         animationRef.current.stop();
       }
+      if (spinAnimationRef.current) {
+        spinAnimationRef.current.stop();
+      }
       pulseAnim.setValue(1);
+      spinAnim.setValue(0);
     }
 
     return () => {
       if (animationRef.current) {
         animationRef.current.stop();
       }
+      if (spinAnimationRef.current) {
+        spinAnimationRef.current.stop();
+      }
     };
-  }, [status, pulseAnim]);
+  }, [status, pulseAnim, spinAnim]);
 
   const getStatusColor = () => {
     switch (status) {
@@ -261,23 +426,40 @@ function StatusIndicator({ status }: { status: SignerStatus }) {
     }
   };
 
-  const getStatusIcon = (): React.ComponentProps<typeof FontAwesome>['name'] => {
+  const renderStatusIcon = () => {
+    const iconProps = { size: 36, color: 'white', strokeWidth: 2 };
+
     switch (status) {
       case 'running':
-        return 'check-circle';
+        return <CheckCircle {...iconProps} />;
       case 'connecting':
-        return 'spinner';
+        return (
+          <Animated.View
+            style={{
+              transform: [
+                {
+                  rotate: spinAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: ['0deg', '360deg'],
+                  }),
+                },
+              ],
+            }}
+          >
+            <Loader2 {...iconProps} />
+          </Animated.View>
+        );
       case 'error':
-        return 'exclamation-circle';
+        return <AlertCircle {...iconProps} />;
       default:
-        return 'power-off';
+        return <Power {...iconProps} />;
     }
   };
 
   return (
     <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
       <View className={`w-20 h-20 rounded-full items-center justify-center ${getStatusColor()}`}>
-        <FontAwesome name={getStatusIcon()} size={36} color="white" />
+        {renderStatusIcon()}
       </View>
     </Animated.View>
   );

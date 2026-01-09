@@ -1,5 +1,6 @@
 import { View, TextInput, Text, type TextInputProps } from 'react-native';
 import { useState } from 'react';
+import Colors from '@/constants/Colors';
 
 interface InputProps extends TextInputProps {
   label?: string;
@@ -29,18 +30,19 @@ export function Input({
       <TextInput
         className={`
           px-4 py-3 rounded-lg
-          bg-gray-900
-          text-gray-100
+          bg-gray-800/50
+          text-blue-300
           border-2
+          text-sm
           ${hasError
             ? 'border-red-500'
             : isFocused
               ? 'border-blue-500'
-              : 'border-blue-900/30'
+              : 'border-gray-700/50'
           }
           ${multiline ? 'min-h-[100px] text-top' : ''}
         `}
-        placeholderTextColor="#6b7280" // Tailwind gray-500
+        placeholderTextColor={Colors.placeholder}
         onFocus={(e) => {
           setIsFocused(true);
           props.onFocus?.(e);

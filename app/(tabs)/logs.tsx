@@ -1,10 +1,24 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { View, Text, Pressable, FlatList, type ListRenderItem } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
+import {
+  FileText,
+  CheckSquare,
+  Square,
+  XCircle,
+  AlertTriangle,
+  Info,
+  Bug,
+  ChevronUp,
+  ChevronDown,
+  Trash2,
+  Filter,
+  Copy,
+} from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
-import { Card, Badge, Button } from '@/components/ui';
-import { useLogStore, getFilteredLogs } from '@/stores';
+import * as Clipboard from 'expo-clipboard';
+import { Card, Badge, Button, IconButton, GradientBackground, HelpTooltip } from '@/components/ui';
+import { useLogStore } from '@/stores';
 import type { LogEntry, LogLevel, LogCategory } from '@/types';
 
 const LOG_LEVELS: LogLevel[] = ['debug', 'info', 'warn', 'error'];
@@ -75,87 +89,99 @@ export default function LogsTab() {
   const keyExtractor = useCallback((item: LogEntry) => item.id, []);
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-950" edges={['bottom']}>
-      {/* Filter Bar */}
-      <View className="px-4 pt-2 pb-3 border-b border-blue-900/30 bg-gray-900">
-        {/* Level Filters */}
-        <View className="flex-row items-center mb-2">
-          <Text className="text-xs text-gray-400 mr-2 w-12">Level</Text>
-          <View className="flex-row flex-wrap gap-1">
-            {LOG_LEVELS.map((level) => (
-              <FilterChip
-                key={level}
-                label={level}
-                active={filter.levels.includes(level)}
-                variant={getLevelVariant(level)}
-                onPress={() => toggleLevel(level)}
-              />
-            ))}
+    <GradientBackground>
+      <SafeAreaView className="flex-1" edges={[]}>
+        {/* Filter Bar */}
+        <View className="px-4 pt-2 pb-3 border-b border-gray-700/30 bg-gray-900/80">
+          {/* Filter Header */}
+          <View className="flex-row items-center gap-1 mb-2">
+            <Filter size={12} color="#9ca3af" strokeWidth={2} />
+            <Text className="text-xs font-medium text-gray-400">Filters</Text>
+            <HelpTooltip
+              title="Log Filters"
+              content="Filter logs by severity level and category. Click a chip to toggle visibility. At least one filter must be active per row."
+              size={12}
+            />
+          </View>
+          {/* Level Filters */}
+          <View className="flex-row items-center mb-2">
+            <Text className="text-xs text-gray-400 mr-2 w-12">Level</Text>
+            <View className="flex-row flex-wrap gap-1">
+              {LOG_LEVELS.map((level) => (
+                <FilterChip
+                  key={level}
+                  label={level}
+                  active={filter.levels.includes(level)}
+                  variant={getLevelVariant(level)}
+                  onPress={() => toggleLevel(level)}
+                />
+              ))}
+            </View>
+          </View>
+
+          {/* Category Filters */}
+          <View className="flex-row items-center">
+            <Text className="text-xs text-gray-400 mr-2 w-12">Type</Text>
+            <View className="flex-row flex-wrap gap-1">
+              {LOG_CATEGORIES.map((category) => (
+                <FilterChip
+                  key={category}
+                  label={category}
+                  active={filter.categories.includes(category)}
+                  onPress={() => toggleCategory(category)}
+                />
+              ))}
+            </View>
           </View>
         </View>
 
-        {/* Category Filters */}
-        <View className="flex-row items-center">
-          <Text className="text-xs text-gray-400 mr-2 w-12">Type</Text>
-          <View className="flex-row flex-wrap gap-1">
-            {LOG_CATEGORIES.map((category) => (
-              <FilterChip
-                key={category}
-                label={category}
-                active={filter.categories.includes(category)}
-                onPress={() => toggleCategory(category)}
-              />
-            ))}
-          </View>
-        </View>
-      </View>
+        {/* Log List */}
+        <FlatList
+          ref={flatListRef}
+          data={filteredEntries}
+          renderItem={renderLogEntry}
+          keyExtractor={keyExtractor}
+          contentContainerStyle={{ padding: 16 }}
+          ItemSeparatorComponent={() => <View className="h-2" />}
+          ListEmptyComponent={
+            <View className="py-12 items-center">
+              <FileText size={32} color="#9ca3af" strokeWidth={1.5} />
+              <Text className="text-gray-400 mt-2">No log entries</Text>
+              <Text className="text-sm text-gray-500 mt-1">
+                Events will appear here as they occur
+              </Text>
+            </View>
+          }
+        />
 
-      {/* Log List */}
-      <FlatList
-        ref={flatListRef}
-        data={filteredEntries}
-        renderItem={renderLogEntry}
-        keyExtractor={keyExtractor}
-        contentContainerStyle={{ padding: 16 }}
-        ItemSeparatorComponent={() => <View className="h-2" />}
-        ListEmptyComponent={
-          <View className="py-12 items-center">
-            <FontAwesome name="file-text-o" size={32} color="#9ca3af" />
-            <Text className="text-gray-400 mt-2">No log entries</Text>
-            <Text className="text-sm text-gray-500 mt-1">
-              Events will appear here as they occur
+        {/* Bottom Actions */}
+        <View className="px-4 py-3 border-t border-gray-700/30 bg-gray-900/80 flex-row items-center justify-between">
+          <View className="flex-row items-center">
+            <Pressable
+              onPress={() => setAutoScroll(!autoScroll)}
+              className="flex-row items-center"
+            >
+              {autoScroll ? (
+                <CheckSquare size={18} color="#60a5fa" strokeWidth={2} />
+              ) : (
+                <Square size={18} color="#9ca3af" strokeWidth={2} />
+              )}
+              <Text className="text-sm text-gray-400 ml-2">Auto-scroll</Text>
+            </Pressable>
+            <Text className="text-sm text-gray-400 ml-4">
+              {filteredEntries.length} / {entries.length} entries
             </Text>
           </View>
-        }
-      />
-
-      {/* Bottom Actions */}
-      <View className="px-4 py-3 border-t border-blue-900/30 bg-gray-900 flex-row items-center justify-between">
-        <View className="flex-row items-center">
-          <Pressable
-            onPress={() => setAutoScroll(!autoScroll)}
-            className="flex-row items-center"
-          >
-            <FontAwesome
-              name={autoScroll ? 'check-square-o' : 'square-o'}
-              size={18}
-              color={autoScroll ? '#60a5fa' : '#9ca3af'} // blue-400 : gray-400
-            />
-            <Text className="text-sm text-gray-400 ml-2">Auto-scroll</Text>
-          </Pressable>
-          <Text className="text-sm text-gray-400 ml-4">
-            {filteredEntries.length} / {entries.length} entries
-          </Text>
+          <IconButton
+            icon={<Trash2 size={16} color="#9ca3af" strokeWidth={2} />}
+            variant="ghost"
+            size="md"
+            disabled={entries.length === 0}
+            onPress={handleClearLogs}
+          />
         </View>
-        <Button
-          title="Clear"
-          variant="ghost"
-          size="sm"
-          disabled={entries.length === 0}
-          onPress={handleClearLogs}
-        />
-      </View>
-    </SafeAreaView>
+      </SafeAreaView>
+    </GradientBackground>
   );
 }
 
@@ -223,17 +249,53 @@ function LogEntryItem({
 }) {
   const hasData = entry.data && Object.keys(entry.data).length > 0;
 
+  const handleCopyData = useCallback(async () => {
+    if (entry.data) {
+      await Clipboard.setStringAsync(JSON.stringify(entry.data, null, 2));
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+  }, [entry.data]);
+
+  const renderLevelIcon = () => {
+    const color = getLevelColor(entry.level);
+    const props = { size: 14, color, strokeWidth: 2 };
+
+    switch (entry.level) {
+      case 'error':
+        return <XCircle {...props} />;
+      case 'warn':
+        return <AlertTriangle {...props} />;
+      case 'info':
+        return <Info {...props} />;
+      default:
+        return <Bug {...props} />;
+    }
+  };
+
+  // Get category badge variant based on category type
+  const getCategoryVariant = () => {
+    switch (entry.category) {
+      case 'signing':
+        return 'orange';
+      case 'peer':
+        return 'purple';
+      case 'relay':
+        return 'info';
+      case 'echo':
+        return 'success';
+      case 'system':
+      default:
+        return 'default';
+    }
+  };
+
   return (
     <Pressable onPress={hasData ? onToggle : undefined}>
       <Card padding="sm">
         <View className="flex-row items-start">
           {/* Level Icon */}
           <View className="mr-2 mt-0.5">
-            <FontAwesome
-              name={getLevelIcon(entry.level)}
-              size={14}
-              color={getLevelColor(entry.level)}
-            />
+            {renderLevelIcon()}
           </View>
 
           {/* Content */}
@@ -241,14 +303,15 @@ function LogEntryItem({
             {/* Header Row */}
             <View className="flex-row items-center justify-between mb-1">
               <View className="flex-row items-center">
-                <Badge label={entry.category} size="sm" />
+                <Badge label={entry.category} size="sm" variant={getCategoryVariant()} />
                 {hasData && (
-                  <FontAwesome
-                    name={expanded ? 'chevron-up' : 'chevron-down'}
-                    size={10}
-                    color="#9ca3af"
-                    style={{ marginLeft: 6 }}
-                  />
+                  <View className="ml-1.5">
+                    {expanded ? (
+                      <ChevronUp size={10} color="#9ca3af" strokeWidth={2} />
+                    ) : (
+                      <ChevronDown size={10} color="#9ca3af" strokeWidth={2} />
+                    )}
+                  </View>
                 )}
               </View>
               <Text className="text-xs text-gray-400">
@@ -262,6 +325,12 @@ function LogEntryItem({
             {/* Expanded Data */}
             {expanded && hasData && (
               <View className="mt-2 p-2 bg-gray-800 rounded">
+                <View className="flex-row items-center justify-between mb-1">
+                  <Text className="text-xs text-gray-500">Data</Text>
+                  <Pressable onPress={handleCopyData} hitSlop={8}>
+                    <Copy size={12} color="#9ca3af" strokeWidth={2} />
+                  </Pressable>
+                </View>
                 <Text className="text-xs font-mono text-gray-400">
                   {JSON.stringify(entry.data, null, 2)}
                 </Text>
@@ -272,19 +341,6 @@ function LogEntryItem({
       </Card>
     </Pressable>
   );
-}
-
-function getLevelIcon(level: LogLevel): React.ComponentProps<typeof FontAwesome>['name'] {
-  switch (level) {
-    case 'error':
-      return 'times-circle';
-    case 'warn':
-      return 'exclamation-triangle';
-    case 'info':
-      return 'info-circle';
-    default:
-      return 'bug';
-  }
 }
 
 // Returns Tailwind color hex values for RN components
