@@ -44,7 +44,7 @@ export const SOUNDSCAPE_REGISTRY: Record<SoundscapeId, SoundscapeConfig> = {
     id: 'white-noise',
     name: 'White Noise',
     description: 'Steady ambient noise',
-    filename: 'whitenoise',
+    filename: 'white-noise',
     available: false, // Not yet bundled
   },
   'campfire': {
@@ -95,4 +95,18 @@ export function getSoundscapeFilename(id: SoundscapeId): string {
  */
 export function isSoundscapeAvailable(id: SoundscapeId): boolean {
   return SOUNDSCAPE_REGISTRY[id].available;
+}
+
+/**
+ * Get SoundscapeId from a filename (reverse lookup).
+ * Returns the ID if found, otherwise returns the default soundscape.
+ */
+export function getSoundscapeIdFromFilename(filename: string): SoundscapeId {
+  for (const config of Object.values(SOUNDSCAPE_REGISTRY)) {
+    if (config.filename === filename) {
+      return config.id;
+    }
+  }
+  // Fallback to default if filename not found
+  return DEFAULT_SOUNDSCAPE_ID;
 }

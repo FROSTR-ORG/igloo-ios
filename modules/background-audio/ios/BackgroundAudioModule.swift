@@ -191,7 +191,7 @@ public class BackgroundAudioModule: Module {
       return "Rain"
     case "forest":
       return "Forest"
-    case "whitenoise":
+    case "white-noise":
       return "White Noise"
     case "campfire":
       return "Campfire"

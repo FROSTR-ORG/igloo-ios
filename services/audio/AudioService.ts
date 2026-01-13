@@ -1,14 +1,16 @@
 import { Platform, EmitterSubscription } from 'react-native';
 import { BackgroundAudioModule, audioEventEmitter } from '@/modules/background-audio';
 import type { AudioStatus, SoundscapeId } from '@/types';
-import { getSoundscapeFilename } from './soundscapes';
+import { getSoundscapeFilename, getSoundscapeIdFromFilename } from './soundscapes';
 
 /** Native playback state change event from BackgroundAudioModule */
 interface PlaybackStateEvent {
   isPlaying: boolean;
-  reason: 'started' | 'stopped' | 'interrupted' | 'resumed' | 'resumeFailed' | 'routeChangeFailed';
+  reason: 'started' | 'stopped' | 'interrupted' | 'resumed' | 'resumeFailed' | 'routeChangeFailed' | 'decodeError';
   /** Actual soundscape being played (included on 'started' and 'resumed' events) */
   soundscape?: string;
+  /** Error message (included on 'decodeError' events) */
+  error?: string;
 }
 
 /**
@@ -241,6 +243,15 @@ class AudioService {
         // Update internal state
         this.isPlaying = event.isPlaying;
 
+        // Sync soundscape if native reports a different one (e.g., fallback occurred)
+        if (event.soundscape) {
+          const nativeSoundscapeId = getSoundscapeIdFromFilename(event.soundscape);
+          if (nativeSoundscapeId !== this.currentSoundscapeId) {
+            console.log(`[AudioService] Soundscape synced from native: ${this.currentSoundscapeId} -> ${nativeSoundscapeId}`);
+            this.currentSoundscapeId = nativeSoundscapeId;
+          }
+        }
+
         // Translate native event reason to AudioStatus
         const status = this.translateEventToStatus(event);
         if (status && this.onStatusChange) {
@@ -275,6 +286,7 @@ class AudioService {
         return 'playing';
       case 'resumeFailed':
       case 'routeChangeFailed':
+      case 'decodeError':
         return 'error';
       case 'stopped':
         return 'idle';
