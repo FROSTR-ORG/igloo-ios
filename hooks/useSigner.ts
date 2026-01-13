@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
-import { useSignerStore, useRelayStore, useCredentialStore } from '@/stores';
+import { useSignerStore, useRelayStore, useCredentialStore, useAudioStore } from '@/stores';
 import { secureStorage } from '@/services/storage/secureStorage';
+import { audioService } from '@/services/audio';
 import { useIgloo } from './useIgloo';
 
 /**
@@ -11,6 +12,7 @@ export function useSigner() {
 
   // Signer state
   const status = useSignerStore((s) => s.status);
+  const audioStatus = useSignerStore((s) => s.audioStatus);
   const connectedRelays = useSignerStore((s) => s.connectedRelays);
   const lastError = useSignerStore((s) => s.lastError);
   const signingRequestsReceived = useSignerStore((s) => s.signingRequestsReceived);
@@ -23,8 +25,13 @@ export function useSigner() {
   const relays = useRelayStore((s) => s.relays);
   const shareDetails = useCredentialStore((s) => s.shareDetails);
 
+  // Audio preferences (for applying on start)
+  const storedVolume = useAudioStore((s) => s.volume);
+  const storedSoundscape = useAudioStore((s) => s.soundscapeId);
+
   /**
    * Start the signer with stored credentials and configured relays.
+   * Also applies stored audio preferences.
    */
   const start = useCallback(async () => {
     const credentials = await secureStorage.getCredentials();
@@ -32,8 +39,14 @@ export function useSigner() {
       throw new Error('No credentials found');
     }
 
+    // Set soundscape before starting (configures which file to play)
+    await audioService.setSoundscape(storedSoundscape);
+
     await startSigner(credentials.group, credentials.share, relays);
-  }, [startSigner, relays]);
+
+    // Apply volume AFTER signer starts (audio player must exist first)
+    await audioService.setVolume(storedVolume);
+  }, [startSigner, relays, storedVolume, storedSoundscape]);
 
   /**
    * Stop the signer.
@@ -64,6 +77,7 @@ export function useSigner() {
   return {
     // State
     status,
+    audioStatus,
     connectedRelays,
     lastError,
     signingRequestsReceived,
@@ -77,6 +91,7 @@ export function useSigner() {
     isConnecting: status === 'connecting',
     isStopped: status === 'stopped',
     hasError: status === 'error',
+    isAudioPlaying: audioStatus === 'playing',
 
     // Actions
     start,

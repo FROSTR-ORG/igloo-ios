@@ -1,12 +1,28 @@
-import { Platform } from 'react-native';
-import { BackgroundAudioModule } from '@/modules/background-audio';
+import { Platform, EmitterSubscription } from 'react-native';
+import { BackgroundAudioModule, audioEventEmitter } from '@/modules/background-audio';
+import type { AudioStatus, SoundscapeId } from '@/types';
+import { getSoundscapeFilename } from './soundscapes';
+
+/** Native playback state change event from BackgroundAudioModule */
+interface PlaybackStateEvent {
+  isPlaying: boolean;
+  reason: 'started' | 'stopped' | 'interrupted' | 'resumed' | 'resumeFailed' | 'routeChangeFailed';
+  /** Actual soundscape being played (included on 'started' and 'resumed' events) */
+  soundscape?: string;
+}
 
 /**
  * AudioService - Wrapper for native BackgroundAudioModule.
  * Uses Expo Modules API with native Swift/AVAudioPlayer for reliable iOS background audio playback.
+ * Subscribes to native events and translates them to AudioStatus changes.
  */
 class AudioService {
   private isPlaying: boolean = false;
+  private healthCheckInterval: ReturnType<typeof setInterval> | null = null;
+  private onHealthCheckFailed?: () => void;
+  private nativeEventSubscription: EmitterSubscription | null = null;
+  private onStatusChange?: (status: AudioStatus) => void;
+  private currentSoundscapeId: SoundscapeId = 'ocean-waves';
 
   /**
    * Initialize - check if module is available.
@@ -19,17 +35,25 @@ class AudioService {
     if (Platform.OS === 'ios' && BackgroundAudioModule) {
       console.log('[AudioService] Expo BackgroundAudioModule available');
     } else if (__DEV__) {
-      console.warn('[AudioService] Module not available - ensure you are running a development build (npx expo run:ios)');
+      console.warn(
+        '[AudioService] Module not available - ensure you are running a development build (npx expo run:ios)'
+      );
     }
   }
 
   /**
-   * Start playing background audio.
+   * Start playing background audio with the current soundscape.
    * Safe to call multiple times - will only start if not already playing.
+   * @param soundscapeId - Optional soundscape to play. If not provided, uses current soundscape.
    */
-  async play(): Promise<void> {
+  async play(soundscapeId?: SoundscapeId): Promise<void> {
     if (Platform.OS === 'ios' && BackgroundAudioModule) {
       try {
+        // Update current soundscape if provided
+        if (soundscapeId) {
+          this.currentSoundscapeId = soundscapeId;
+        }
+
         // Check native state in case JS state is out of sync
         const nativeIsPlaying = await BackgroundAudioModule.isPlaying();
         if (nativeIsPlaying) {
@@ -43,8 +67,9 @@ class AudioService {
           return;
         }
 
-        console.log('[AudioService] Calling native play...');
-        await BackgroundAudioModule.play();
+        const filename = getSoundscapeFilename(this.currentSoundscapeId);
+        console.log(`[AudioService] Calling native play with soundscape: ${filename}...`);
+        await BackgroundAudioModule.play(filename);
         this.isPlaying = true;
         console.log('[AudioService] Native playback started');
       } catch (error) {
@@ -107,6 +132,7 @@ class AudioService {
 
   /**
    * Set the playback volume (0.0 to 1.0).
+   * @throws Error if native module call fails
    */
   async setVolume(volume: number): Promise<void> {
     if (Platform.OS === 'ios' && BackgroundAudioModule) {
@@ -114,7 +140,147 @@ class AudioService {
         await BackgroundAudioModule.setVolume(volume);
       } catch (error) {
         console.error('[AudioService] Failed to set volume:', error);
+        throw error;
       }
+    }
+  }
+
+  /**
+   * Change the current soundscape.
+   * If audio is playing, it will seamlessly switch to the new soundscape.
+   * @param soundscapeId - The soundscape to switch to.
+   * @throws Error if native module call fails
+   */
+  async setSoundscape(soundscapeId: SoundscapeId): Promise<void> {
+    this.currentSoundscapeId = soundscapeId;
+    const filename = getSoundscapeFilename(soundscapeId);
+    console.log(`[AudioService] Setting soundscape to: ${filename}`);
+
+    if (Platform.OS === 'ios' && BackgroundAudioModule) {
+      try {
+        await BackgroundAudioModule.setSoundscape(filename);
+        console.log('[AudioService] Soundscape changed successfully');
+      } catch (error) {
+        console.error('[AudioService] Failed to set soundscape:', error);
+        throw error;
+      }
+    }
+  }
+
+  /**
+   * Get the current soundscape ID.
+   */
+  getCurrentSoundscape(): SoundscapeId {
+    return this.currentSoundscapeId;
+  }
+
+  /**
+   * Start periodic health check to detect if audio unexpectedly stopped.
+   * @param onFailed - Callback when health check detects audio has stopped
+   * @param intervalMs - Check interval in milliseconds (default: 30000)
+   */
+  startHealthCheck(onFailed: () => void, intervalMs = 30000): void {
+    this.stopHealthCheck(); // Clear any existing interval
+    this.onHealthCheckFailed = onFailed;
+
+    this.healthCheckInterval = setInterval(async () => {
+      if (this.isPlaying) {
+        const nativeIsPlaying = await this.getIsPlayingAsync();
+        if (!nativeIsPlaying) {
+          console.warn('[AudioService] Health check failed - audio stopped unexpectedly');
+          this.isPlaying = false;
+          this.onHealthCheckFailed?.();
+        }
+      }
+    }, intervalMs);
+
+    console.log(`[AudioService] Health check started (interval: ${intervalMs}ms)`);
+  }
+
+  /**
+   * Stop periodic health check.
+   */
+  stopHealthCheck(): void {
+    if (this.healthCheckInterval) {
+      clearInterval(this.healthCheckInterval);
+      this.healthCheckInterval = null;
+      console.log('[AudioService] Health check stopped');
+    }
+  }
+
+  /**
+   * Set callback for audio status changes from native events.
+   * Called when audio is interrupted, resumed, or fails.
+   */
+  setStatusChangeCallback(callback: (status: AudioStatus) => void): void {
+    this.onStatusChange = callback;
+  }
+
+  /**
+   * Subscribe to native audio events.
+   * Must be called after audio starts playing to receive interruption events.
+   */
+  subscribeToNativeEvents(): void {
+    if (!audioEventEmitter) {
+      if (__DEV__) {
+        console.log('[AudioService] Native event emitter not available');
+      }
+      return;
+    }
+
+    // Prevent duplicate subscriptions
+    if (this.nativeEventSubscription) {
+      return;
+    }
+
+    this.nativeEventSubscription = audioEventEmitter.addListener(
+      'onPlaybackStateChanged',
+      (event: PlaybackStateEvent) => {
+        console.log('[AudioService] Native event:', event.reason, 'isPlaying:', event.isPlaying);
+
+        // Update internal state
+        this.isPlaying = event.isPlaying;
+
+        // Translate native event reason to AudioStatus
+        const status = this.translateEventToStatus(event);
+        if (status && this.onStatusChange) {
+          this.onStatusChange(status);
+        }
+      }
+    );
+
+    console.log('[AudioService] Subscribed to native events');
+  }
+
+  /**
+   * Unsubscribe from native audio events.
+   */
+  unsubscribeFromNativeEvents(): void {
+    if (this.nativeEventSubscription) {
+      this.nativeEventSubscription.remove();
+      this.nativeEventSubscription = null;
+      console.log('[AudioService] Unsubscribed from native events');
+    }
+  }
+
+  /**
+   * Translate native event to AudioStatus.
+   * Returns null for events that don't need status updates (e.g., 'started' is handled by play()).
+   */
+  private translateEventToStatus(event: PlaybackStateEvent): AudioStatus | null {
+    switch (event.reason) {
+      case 'interrupted':
+        return 'interrupted';
+      case 'resumed':
+        return 'playing';
+      case 'resumeFailed':
+      case 'routeChangeFailed':
+        return 'error';
+      case 'stopped':
+        return 'idle';
+      // 'started' is handled by the play() call, not events
+      default:
+        return null;
     }
   }
 }

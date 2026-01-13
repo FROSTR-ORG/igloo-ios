@@ -1,5 +1,9 @@
 import ExpoModulesCore
 import AVFoundation
+import MediaPlayer
+
+// Event name constant
+let onPlaybackStateChanged = "onPlaybackStateChanged"
 
 // Debug logging helper - only prints in DEBUG builds
 private func debugLog(_ message: String) {
@@ -25,9 +29,13 @@ public class BackgroundAudioModule: Module {
   private var playing: Bool = false
   private var interruptionObserver: NSObjectProtocol?
   private var routeChangeObserver: NSObjectProtocol?
+  private var currentSoundscape: String = "ocean-waves"  // Default soundscape filename
 
   public func definition() -> ModuleDefinition {
     Name("BackgroundAudio")
+
+    // Register events that can be sent to JS
+    Events(onPlaybackStateChanged)
 
     OnCreate {
       debugLog("Module created")
@@ -37,9 +45,14 @@ public class BackgroundAudioModule: Module {
     OnDestroy {
       debugLog("Module destroyed - cleaning up")
       self.cleanupNotificationHandlers()
+      self.clearNowPlayingInfo()
     }
 
-    AsyncFunction("play") { () -> Bool in
+    AsyncFunction("play") { (filename: String?) -> Bool in
+      // Use provided filename or keep current
+      if let newFilename = filename, !newFilename.isEmpty {
+        await MainActor.run { self.currentSoundscape = newFilename }
+      }
       return try await self.startPlayback()
     }
 
@@ -58,6 +71,25 @@ public class BackgroundAudioModule: Module {
       return await MainActor.run {
         return self.playing
       }
+    }
+
+    // Change soundscape while playing (or set for next play)
+    AsyncFunction("setSoundscape") { (filename: String) -> Bool in
+      debugLog("Setting soundscape to: \(filename)")
+      await MainActor.run { self.currentSoundscape = filename }
+
+      // If currently playing, restart with new soundscape
+      if await MainActor.run(body: { self.playing }) {
+        debugLog("Restarting playback with new soundscape")
+        _ = await self.stopPlayback()
+        return try await self.startPlayback()
+      }
+      return true
+    }
+
+    // Get the current soundscape filename
+    Function("getCurrentSoundscape") { () -> String in
+      return self.currentSoundscape
     }
   }
 
@@ -82,6 +114,7 @@ public class BackgroundAudioModule: Module {
 
   deinit {
     cleanupNotificationHandlers()
+    clearNowPlayingInfo()
   }
 
   private func cleanupNotificationHandlers() {
@@ -109,6 +142,46 @@ public class BackgroundAudioModule: Module {
     debugLog("Output routes: \(session.currentRoute.outputs.map { $0.portName })")
   }
 
+  // MARK: - Now Playing Info (Control Center integration)
+
+  private func setupNowPlayingInfo() {
+    var nowPlayingInfo = [String: Any]()
+    nowPlayingInfo[MPMediaItemPropertyTitle] = "Igloo Signer"
+    // Show the current soundscape in Control Center
+    let soundscapeName = getSoundscapeDisplayName(currentSoundscape)
+    nowPlayingInfo[MPMediaItemPropertyArtist] = soundscapeName
+    nowPlayingInfo[MPNowPlayingInfoPropertyIsLiveStream] = true
+    nowPlayingInfo[MPNowPlayingInfoPropertyPlaybackRate] = 1.0
+
+    MPNowPlayingInfoCenter.default().nowPlayingInfo = nowPlayingInfo
+    debugLog("Now Playing info set")
+  }
+
+  /// Convert soundscape filename to human-readable name for Control Center
+  private func getSoundscapeDisplayName(_ filename: String) -> String {
+    switch filename {
+    case "ocean-waves":
+      return "Ocean Waves"
+    case "rain":
+      return "Rain"
+    case "forest":
+      return "Forest"
+    case "whitenoise":
+      return "White Noise"
+    case "campfire":
+      return "Campfire"
+    default:
+      return "Soundscape"
+    }
+  }
+
+  private func clearNowPlayingInfo() {
+    MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
+    debugLog("Now Playing info cleared")
+  }
+
+  // MARK: - Interruption & Route Handling
+
   private func handleInterruption(notification: Notification) {
     guard let userInfo = notification.userInfo,
           let typeValue = userInfo[AVAudioSessionInterruptionTypeKey] as? UInt,
@@ -120,6 +193,11 @@ public class BackgroundAudioModule: Module {
     switch type {
     case .began:
       debugLog("Interruption BEGAN")
+      // Emit event to JS - audio is interrupted
+      self.sendEvent(onPlaybackStateChanged, [
+        "isPlaying": false,
+        "reason": "interrupted"
+      ])
     case .ended:
       debugLog("Interruption ENDED")
       if playing {
@@ -132,11 +210,28 @@ public class BackgroundAudioModule: Module {
             // Player failed to resume - update state to reflect reality
             debugLog("WARNING: Resume failed, updating playing state to false")
             playing = false
+            // Emit event to JS - resume failed
+            self.sendEvent(onPlaybackStateChanged, [
+              "isPlaying": false,
+              "reason": "resumeFailed"
+            ])
+          } else {
+            // Emit event to JS - successfully resumed
+            self.sendEvent(onPlaybackStateChanged, [
+              "isPlaying": true,
+              "reason": "resumed",
+              "soundscape": self.currentSoundscape
+            ])
           }
         } catch {
           debugLog("Failed to resume audio session: \(error)")
           // Audio session activation failed - playback cannot continue
           playing = false
+          // Emit event to JS - resume failed
+          self.sendEvent(onPlaybackStateChanged, [
+            "isPlaying": false,
+            "reason": "resumeFailed"
+          ])
         }
       }
     @unknown default:
@@ -158,9 +253,19 @@ public class BackgroundAudioModule: Module {
     // Resume playback if route changed but we should still be playing
     if playing && audioPlayer?.isPlaying == false {
       debugLog("Player stopped due to route change, resuming...")
-      audioPlayer?.play()
+      let resumed = audioPlayer?.play() ?? false
+      if !resumed {
+        debugLog("WARNING: Route change resume failed")
+        playing = false
+        self.sendEvent(onPlaybackStateChanged, [
+          "isPlaying": false,
+          "reason": "routeChangeFailed"
+        ])
+      }
     }
   }
+
+  // MARK: - Playback Control
 
   @MainActor
   private func startPlayback() async throws -> Bool {
@@ -180,20 +285,29 @@ public class BackgroundAudioModule: Module {
       throw error
     }
 
-    // Step 2: Find audio file
-    debugLog("Step 2: Looking for audio file...")
-    guard let audioPath = Bundle.main.path(forResource: "hum", ofType: "wav") else {
-      debugLog("FAILED: Audio file 'hum.wav' not found in bundle!")
+    // Step 2: Find audio file (now using m4a format)
+    debugLog("Step 2: Looking for audio file '\(currentSoundscape).m4a'...")
+    var audioPath = Bundle.main.path(forResource: currentSoundscape, ofType: "m4a")
+
+    // Fall back to default 'ocean-waves' if soundscape file not found
+    if audioPath == nil && currentSoundscape != "ocean-waves" {
+      debugLog("Audio file '\(currentSoundscape).m4a' not found, falling back to 'ocean-waves.m4a'...")
+      currentSoundscape = "ocean-waves"
+      audioPath = Bundle.main.path(forResource: "ocean-waves", ofType: "m4a")
+    }
+
+    guard let finalAudioPath = audioPath else {
+      debugLog("FAILED: No audio file found in bundle!")
       debugLog("Bundle path: \(Bundle.main.bundlePath)")
       throw NSError(domain: "BackgroundAudio", code: 1,
                     userInfo: [NSLocalizedDescriptionKey: "Audio file not found"])
     }
-    debugLog("Found audio file at: \(audioPath)")
+    debugLog("Found audio file at: \(finalAudioPath)")
 
     // Step 3: Create player
     debugLog("Step 3: Creating AVAudioPlayer...")
     do {
-      let audioURL = URL(fileURLWithPath: audioPath)
+      let audioURL = URL(fileURLWithPath: finalAudioPath)
       audioPlayer = try AVAudioPlayer(contentsOf: audioURL)
       audioPlayer?.delegate = audioDelegate
       audioPlayer?.numberOfLoops = -1
@@ -220,6 +334,13 @@ public class BackgroundAudioModule: Module {
     if playResult {
       playing = true
       debugLog("Playback started successfully!")
+      setupNowPlayingInfo()
+      // Emit event to JS - playback started (include actual soundscape in case of fallback)
+      self.sendEvent(onPlaybackStateChanged, [
+        "isPlaying": true,
+        "reason": "started",
+        "soundscape": self.currentSoundscape
+      ])
     } else {
       debugLog("play() returned false - playback FAILED")
       throw NSError(domain: "BackgroundAudio", code: 2,
@@ -233,6 +354,7 @@ public class BackgroundAudioModule: Module {
   @MainActor
   private func stopPlayback() async -> Bool {
     debugLog("Stopping playback...")
+    clearNowPlayingInfo()
     audioPlayer?.stop()
     audioPlayer = nil
     playing = false
@@ -245,6 +367,12 @@ public class BackgroundAudioModule: Module {
       debugLog("Failed to deactivate audio session: \(error)")
       // Non-fatal - continue with stop
     }
+
+    // Emit event to JS - playback stopped
+    self.sendEvent(onPlaybackStateChanged, [
+      "isPlaying": false,
+      "reason": "stopped"
+    ])
 
     debugLog("Playback stopped")
     return true

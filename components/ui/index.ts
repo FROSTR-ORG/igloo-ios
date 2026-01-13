@@ -16,3 +16,5 @@ export { QRCodeModal } from './QRCodeModal';
 export { CredentialDisplay, CompactCredential } from './CredentialDisplay';
 export { StepIndicator, StepBadge } from './StepIndicator';
 export { GradientBackground, SubtleGradient } from './GradientBackground';
+export { VolumeControl } from './VolumeControl';
+export { SoundscapeSelector } from './SoundscapeSelector';

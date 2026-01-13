@@ -1,7 +1,7 @@
 import { useEffect, useCallback } from 'react';
 import { iglooService } from '@/services/igloo';
 import { useSignerStore, useLogStore, usePeerStore } from '@/stores';
-import type { SignerStatus, PeerStatus, LogEntry, SigningRequest } from '@/types';
+import type { AudioStatus, SignerStatus, PeerStatus, LogEntry, SigningRequest } from '@/types';
 
 /**
  * Main hook for interacting with the IglooService.
@@ -16,6 +16,10 @@ export function useIgloo() {
   useEffect(() => {
     const handleStatusChange = (status: SignerStatus) => {
       useSignerStore.getState().setStatus(status);
+    };
+
+    const handleAudioStatus = (status: AudioStatus) => {
+      useSignerStore.getState().setAudioStatus(status);
     };
 
     const handleRelayConnected = () => {
@@ -56,6 +60,7 @@ export function useIgloo() {
 
     // Subscribe to events
     iglooService.on('status:changed', handleStatusChange);
+    iglooService.on('audio:status', handleAudioStatus);
     iglooService.on('relay:connected', handleRelayConnected);
     iglooService.on('relay:disconnected', handleRelayDisconnected);
     iglooService.on('signing:request', handleSigningRequest);
@@ -68,6 +73,7 @@ export function useIgloo() {
     // Cleanup on unmount
     return () => {
       iglooService.off('status:changed', handleStatusChange);
+      iglooService.off('audio:status', handleAudioStatus);
       iglooService.off('relay:connected', handleRelayConnected);
       iglooService.off('relay:disconnected', handleRelayDisconnected);
       iglooService.off('signing:request', handleSigningRequest);

@@ -231,16 +231,24 @@ This handles cases where:
 
 | Setting | Value | Rationale |
 |---------|-------|-----------|
-| Volume | 0.3 | Low enough to not disturb, high enough for iOS to consider "playing" |
+| Volume | 0.3 (default) | Low enough to not disturb, user-adjustable in Settings (0-0.75) |
 | Loop | Infinite | Continuous operation required |
-| File | hum.wav | Ocean waves ambient sound (~70 seconds) |
+| Soundscape | User's choice | Ocean waves (default), with more options coming |
 | Category | .playback | Required for background audio, overrides silent switch |
+
+### Implemented Features
+
+- **User volume control**: Volume presets available in Settings (Off/Low/Med/High/Max) ✓
+- **Soundscape selection**: Choose from multiple ambient sounds in Settings ✓
+- **Audio status indicator**: Shows "Soundscape active" or warnings in signer UI ✓
+- **Now Playing**: Shows "Igloo Signer" and current soundscape in Control Center ✓
+- **Persisted preferences**: Volume and soundscape saved across app restarts ✓
+- **Hot-swappable**: Change soundscape while audio is playing ✓
 
 ### Future Considerations
 
-- **User volume control**: Allow users to adjust soundscape volume
-- **Sound selection**: Multiple ambient sounds to choose from
-- **Mute option**: Allow muting while keeping signer active (would require different approach)
+- **Additional soundscapes**: Rain, forest, white noise, campfire (infrastructure ready)
+- **Custom soundscapes**: Allow users to import their own audio files
 - **Notifications**: Play different sounds for signing events
 
 ## Testing the Integration
@@ -282,12 +290,12 @@ This handles cases where:
 ```
 [IglooService] Starting signer node...
 [IglooService] Signer node started successfully
-[AudioService] Calling native play...
+[AudioService] Calling native play with soundscape: ocean-waves...
 [BackgroundAudio] ========== START PLAYBACK ==========
 [BackgroundAudio] Step 1: Configuring audio session...
 [BackgroundAudio] Audio session activated successfully
-[BackgroundAudio] Step 2: Looking for audio file...
-[BackgroundAudio] Found audio file at: /var/.../hum.wav
+[BackgroundAudio] Step 2: Looking for audio file 'ocean-waves.m4a'...
+[BackgroundAudio] Found audio file at: /var/.../ocean-waves.m4a
 [BackgroundAudio] Step 3: Creating AVAudioPlayer...
 [BackgroundAudio] Player created successfully
 [BackgroundAudio] - Duration: 70.8 seconds
@@ -329,18 +337,32 @@ This handles cases where:
 ```
 services/
 ├── igloo/
-│   ├── IglooService.ts      # Main integration point (startSigner, stopSigner)
-│   └── types.ts             # Type definitions
+│   └── IglooService.ts      # Main integration (emits audio:status events)
 └── audio/
-    ├── AudioService.ts      # Audio service wrapper (native state checks)
+    ├── AudioService.ts      # Audio wrapper with native event subscription
+    ├── soundscapes.ts       # Soundscape registry and configuration
     └── index.ts             # Exports
+
+stores/
+├── signerStore.ts           # audioStatus state (idle/playing/interrupted/error)
+└── audioStore.ts            # Persisted audio preferences (volume, soundscape)
+
+hooks/
+├── useIgloo.ts              # Listens for audio:status events from IglooService
+└── useSigner.ts             # Exposes audioStatus to components
+
+components/ui/
+├── VolumeControl.tsx        # Volume preset buttons (Off/Low/Med/High/Max)
+└── SoundscapeSelector.tsx   # Soundscape selection grid
 
 modules/background-audio/    # Native module (see BACKGROUND_AUDIO_IMPLEMENTATION.md)
 
 ios/Igloo/
-├── hum.wav                  # Audio file (ocean waves)
+├── ocean-waves.m4a          # Default soundscape (ocean waves, AAC format)
 └── Info.plist               # UIBackgroundModes config
 ```
+
+For detailed soundscape system documentation, see [SOUNDSCAPE_SYSTEM.md](./SOUNDSCAPE_SYSTEM.md).
 
 ## User-Facing FAQ
 
@@ -350,11 +372,15 @@ Igloo is a threshold signer that needs to stay awake to respond to signing reque
 
 ### Can I mute the audio?
 
-You can lower the volume using your device's volume buttons. However, completely muting the audio may cause iOS to suspend the app. We recommend keeping the volume low but not zero.
+Yes! You can set the volume to "Off" in Settings while your signer is running. This mutes the soundscape but keeps the audio session active for background operation. You can also use your device's volume buttons for quick adjustments.
 
 ### What is the soundscape?
 
-It's a gentle ocean waves ambient sound designed to be unobtrusive at low volume. Future versions may offer different sound options.
+It's ambient audio designed to be unobtrusive at low volume. You can choose from different soundscapes in Settings - the default is gentle ocean waves. More options (rain, forest, etc.) will be added in future updates.
+
+### Can I change the soundscape?
+
+Yes! Go to Settings while your signer is running and select from available soundscapes. Your choice is saved and will be remembered the next time you start the signer.
 
 ### Does this use a lot of battery?
 
@@ -401,6 +427,59 @@ iOS requires actual audio output for the background mode to work. A truly silent
 **How Long Does It Work?** Only while the app is in the foreground. Once backgrounded, iOS suspends the app within 5-30 seconds without active audio.
 
 **User Action:** Return to the app and restart the signer.
+
+## Troubleshooting Flowchart
+
+### "Signer isn't working in background"
+
+```
+1. Is signer status "Running"?
+   ├─ No → Start the signer
+   └─ Yes → Continue to step 2
+
+2. Is "Soundscape active" shown in the status card?
+   ├─ No → Audio failed to start
+   │       → Check for "Audio failed" warning
+   │       → Stop and restart signer
+   │       → If still fails, check device audio settings
+   └─ Yes → Continue to step 3
+
+3. Is audio playing? (Check Control Center for "Igloo Signer")
+   ├─ No → Audio may have stopped unexpectedly
+   │       → Return to app, check status
+   │       → Restart signer if needed
+   └─ Yes → Continue to step 4
+
+4. Check relay connections in app
+   ├─ 0 relays connected → Network issue
+   │       → Check WiFi/cellular
+   │       → Try different relays in Settings
+   └─ Relays connected → Continue to step 5
+
+5. Has the app been backgrounded for >10 minutes?
+   ├─ Yes → iOS may have suspended despite audio
+   │       → Return to app periodically
+   │       → Check for iOS Low Power Mode (disable if enabled)
+   └─ No → Issue may be relay-side, check peer connectivity
+```
+
+### Common Issues Table
+
+| Symptom | Cause | Solution |
+|---------|-------|----------|
+| No audio after starting | Audio session failed | Restart signer |
+| Audio stops after phone call | Interruption recovery failed | Restart signer |
+| "Audio failed" warning in UI | Native module error | Check device volume, restart app |
+| Signer suspended in background | Audio not playing | Check Control Center, restart signer |
+| High battery drain | Expected ~3%/hour | Normal for background operation |
+| Audio plays in silent mode | Required by iOS | Normal - adjust volume in Settings |
+
+### Recovery Procedures
+
+1. **Restart Signer**: Tap Stop → Wait 2 seconds → Tap Start
+2. **Full App Restart**: Force quit app → Relaunch → Start signer
+3. **Check System Settings**: iOS Settings → Igloo → Ensure "Background App Refresh" is on
+4. **Check Audio Volume**: Adjust soundscape volume in Settings tab
 
 ## Related Documentation
 

@@ -1,4 +1,4 @@
-import type { SignerStatus, SignerStoreState, SigningRequest } from '@/types';
+import type { AudioStatus, SignerStatus, SignerStoreState, SigningRequest } from '@/types';
 import { create } from 'zustand';
 
 const MAX_RECENT_REQUESTS = 10;
@@ -6,6 +6,7 @@ const MAX_RECENT_REQUESTS = 10;
 export const useSignerStore = create<SignerStoreState>()((set, get) => ({
   // State (ephemeral - not persisted)
   status: 'stopped',
+  audioStatus: 'idle',
   connectedRelays: [],
   lastError: null,
   signingRequestsReceived: 0,
@@ -21,7 +22,13 @@ export const useSignerStore = create<SignerStoreState>()((set, get) => ({
         ? new Date()
         : state.sessionStartTime,
       lastError: status === 'running' ? null : state.lastError,
+      // Reset audio status when signer stops
+      audioStatus: status === 'stopped' ? 'idle' : state.audioStatus,
     }));
+  },
+
+  setAudioStatus: (audioStatus: AudioStatus) => {
+    set({ audioStatus });
   },
 
   setConnectedRelays: (relays: string[]) => {
@@ -78,6 +85,7 @@ export const useSignerStore = create<SignerStoreState>()((set, get) => ({
   resetSession: () => {
     set({
       status: 'stopped',
+      audioStatus: 'idle',
       connectedRelays: [],
       lastError: null,
       signingRequestsReceived: 0,

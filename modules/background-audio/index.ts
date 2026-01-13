@@ -1,3 +1,3 @@
-import BackgroundAudioModule from './src/BackgroundAudioModule';
+import BackgroundAudioModule, { audioEventEmitter } from './src/BackgroundAudioModule';
 
-export { BackgroundAudioModule };
+export { BackgroundAudioModule, audioEventEmitter };

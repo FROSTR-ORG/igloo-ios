@@ -18,9 +18,12 @@ iOS aggressively suspends apps when they go to the background to conserve batter
 │  - Singleton wrapper for native module                      │
 │  - Platform checks (iOS only)                               │
 │  - Native state verification before play                    │
+│  - Subscribes to native events (interruptions, resume)      │
+│  - Translates native events to AudioStatus for UI           │
+│  - Health check (30s interval) as fallback detection        │
 │  - Error handling and logging                               │
 └───────────────────────┬─────────────────────────────────────┘
-                        │ Expo Modules API
+                        │ Expo Modules API + NativeEventEmitter
                         ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                    Native Swift Layer                       │
@@ -31,6 +34,8 @@ iOS aggressively suspends apps when they go to the background to conserve batter
 │  - AudioPlayerDelegate for playback callbacks               │
 │  - Interruption handling (phone calls, Siri, etc.)          │
 │  - Route change handling (headphones, Bluetooth)            │
+│  - Events emitted to JS (onPlaybackStateChanged)            │
+│  - Now Playing integration (MPNowPlayingInfoCenter)         │
 │  - Runs on iOS main thread (not JS bridge)                  │
 └───────────────────────┬─────────────────────────────────────┘
                         │
@@ -39,6 +44,7 @@ iOS aggressively suspends apps when they go to the background to conserve batter
 │                    iOS System Layer                         │
 ├─────────────────────────────────────────────────────────────┤
 │  - AVFoundation framework                                   │
+│  - MediaPlayer framework (Now Playing)                      │
 │  - UIBackgroundModes: ["audio"] in Info.plist               │
 │  - iOS Audio Session management                             │
 └─────────────────────────────────────────────────────────────┘
@@ -48,20 +54,28 @@ iOS aggressively suspends apps when they go to the background to conserve batter
 
 ```
 modules/background-audio/
-├── expo-module.config.json    # Expo module configuration
-├── index.ts                   # Module entry point
+├── expo-module.config.json       # Expo module configuration
+├── index.ts                      # Module entry point (exports audioEventEmitter)
 ├── src/
-│   └── BackgroundAudioModule.ts  # TypeScript interface/types
+│   └── BackgroundAudioModule.ts  # TypeScript interface, event emitter setup
 └── ios/
     ├── BackgroundAudio.podspec   # CocoaPods specification
     └── BackgroundAudioModule.swift  # Native implementation
 
 services/audio/
-├── AudioService.ts            # High-level service wrapper
+├── AudioService.ts            # High-level wrapper with native event handling
+├── soundscapes.ts             # Soundscape registry and configuration
 └── index.ts                   # Export barrel
 
+stores/
+└── audioStore.ts              # Persisted audio preferences (volume, soundscape)
+
+components/ui/
+├── VolumeControl.tsx          # Volume preset buttons (Off/Low/Med/High/Max)
+└── SoundscapeSelector.tsx     # Soundscape selection grid
+
 ios/Igloo/
-└── hum.wav                    # Audio file (ocean waves, ~70 seconds)
+└── ocean-waves.m4a            # Audio file (ocean waves, ~70 seconds, AAC format)
 ```
 
 ## Native Module Implementation
@@ -78,15 +92,19 @@ The Swift module uses Expo Modules API (`ExpoModulesCore`) for New Architecture 
 ```swift
 import ExpoModulesCore
 import AVFoundation
+import MediaPlayer
+
+// Event name constant for JS communication
+let onPlaybackStateChanged = "onPlaybackStateChanged"
 
 // Separate delegate class since Module can't inherit from NSObject
 private class AudioPlayerDelegate: NSObject, AVAudioPlayerDelegate {
   func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
-    print("[BackgroundAudio] Delegate: finished playing, success: \(flag)")
+    debugLog("Delegate: finished playing, success: \(flag)")
   }
 
   func audioPlayerDecodeErrorDidOccur(_ player: AVAudioPlayer, error: Error?) {
-    print("[BackgroundAudio] Delegate: DECODE ERROR: \(error?.localizedDescription ?? "unknown")")
+    debugLog("Delegate: DECODE ERROR: \(error?.localizedDescription ?? "unknown")")
   }
 }
 
@@ -98,12 +116,24 @@ public class BackgroundAudioModule: Module {
   public func definition() -> ModuleDefinition {
     Name("BackgroundAudio")
 
+    // Register events that can be sent to JS
+    Events(onPlaybackStateChanged)
+
     OnCreate {
-      print("[BackgroundAudio] Module created")
+      debugLog("Module created")
       self.setupNotificationHandlers()
     }
 
-    AsyncFunction("play") { () -> Bool in
+    OnDestroy {
+      self.cleanupNotificationHandlers()
+      self.clearNowPlayingInfo()
+    }
+
+    AsyncFunction("play") { (filename: String?) -> Bool in
+      // Use provided filename or keep current soundscape
+      if let newFilename = filename, !newFilename.isEmpty {
+        await MainActor.run { self.currentSoundscape = newFilename }
+      }
       return try await self.startPlayback()
     }
 
@@ -121,6 +151,25 @@ public class BackgroundAudioModule: Module {
     AsyncFunction("isPlaying") { () -> Bool in
       return self.playing
     }
+
+    AsyncFunction("setSoundscape") { (filename: String) -> Bool in
+      // Change soundscape; restarts playback if currently playing
+      await MainActor.run { self.currentSoundscape = filename }
+      if await MainActor.run(body: { self.playing }) {
+        _ = await self.stopPlayback()
+        return try await self.startPlayback()
+      }
+      return true
+    }
+  }
+
+  // Now Playing integration for Control Center
+  private func setupNowPlayingInfo() {
+    var nowPlayingInfo = [String: Any]()
+    nowPlayingInfo[MPMediaItemPropertyTitle] = "Igloo Signer"
+    nowPlayingInfo[MPMediaItemPropertyArtist] = "Background Soundscape"
+    nowPlayingInfo[MPNowPlayingInfoPropertyIsLiveStream] = true
+    MPNowPlayingInfoCenter.default().nowPlayingInfo = nowPlayingInfo
   }
 
   // ... notification handlers, audio session config, playback methods
@@ -161,12 +210,23 @@ private func handleInterruption(notification: Notification) {
   // Parse interruption type
   switch type {
   case .began:
-    print("[BackgroundAudio] Interruption BEGAN")
+    debugLog("Interruption BEGAN")
+    // Emit event to JS - audio is interrupted
+    self.sendEvent(onPlaybackStateChanged, [
+      "isPlaying": false,
+      "reason": "interrupted"
+    ])
   case .ended:
-    print("[BackgroundAudio] Interruption ENDED")
+    debugLog("Interruption ENDED")
     if playing {
       try AVAudioSession.sharedInstance().setActive(true, options: [])
-      audioPlayer?.play()
+      let resumed = audioPlayer?.play() ?? false
+      if resumed {
+        self.sendEvent(onPlaybackStateChanged, ["isPlaying": true, "reason": "resumed"])
+      } else {
+        playing = false
+        self.sendEvent(onPlaybackStateChanged, ["isPlaying": false, "reason": "resumeFailed"])
+      }
     }
   }
 }
@@ -198,8 +258,8 @@ private func startPlayback() async throws -> Bool {
   // Step 1: Configure audio session
   try configureAndActivateAudioSession()
 
-  // Step 2: Find audio file
-  guard let audioPath = Bundle.main.path(forResource: "hum", ofType: "wav") else {
+  // Step 2: Find audio file (uses currentSoundscape, defaults to "ocean-waves")
+  guard let audioPath = Bundle.main.path(forResource: currentSoundscape, ofType: "m4a") else {
     throw NSError(domain: "BackgroundAudio", code: 1, ...)
   }
 
@@ -231,6 +291,7 @@ private func startPlayback() async throws -> Bool {
 
 ```typescript
 import { NativeModule, requireNativeModule } from 'expo-modules-core';
+import { Platform, NativeEventEmitter, NativeModulesStatic } from 'react-native';
 
 declare class BackgroundAudioModuleType extends NativeModule {
   play(): Promise<boolean>;
@@ -241,25 +302,48 @@ declare class BackgroundAudioModuleType extends NativeModule {
 
 // Gracefully handle missing native module (e.g., Expo Go)
 let BackgroundAudioModule: BackgroundAudioModuleType | null = null;
+let audioEventEmitter: NativeEventEmitter | null = null;
 
 if (Platform.OS === 'ios') {
   try {
     BackgroundAudioModule = requireNativeModule<BackgroundAudioModuleType>('BackgroundAudio');
+    // Create event emitter to listen for native state changes
+    audioEventEmitter = new NativeEventEmitter(
+      BackgroundAudioModule as unknown as NativeModulesStatic[string]
+    );
   } catch (error) {
     console.warn('[BackgroundAudio] Native module not available.');
   }
 }
 
 export default BackgroundAudioModule;
+export { audioEventEmitter };
+```
+
+### Native Events
+
+The module emits `onPlaybackStateChanged` events to JS when:
+- Audio is interrupted (phone call, Siri, alarm)
+- Audio resumes after interruption
+- Resume fails after interruption
+
+```typescript
+// Listen for native state changes
+audioEventEmitter?.addListener('onPlaybackStateChanged', (data) => {
+  console.log('State:', data.isPlaying, 'Reason:', data.reason);
+  // reason: 'interrupted' | 'resumed' | 'resumeFailed'
+});
 ```
 
 ### AudioService.ts
 
-The service provides a high-level API with native state verification:
+The service provides a high-level API with native state verification and health checking:
 
 ```typescript
 class AudioService {
   private isPlaying: boolean = false;
+  private healthCheckInterval: ReturnType<typeof setInterval> | null = null;
+  private onHealthCheckFailed?: () => void;
 
   async play(): Promise<void> {
     if (Platform.OS === 'ios' && BackgroundAudioModule) {
@@ -278,6 +362,28 @@ class AudioService {
   async stop(): Promise<void> { ... }
   async setVolume(volume: number): Promise<void> { ... }
   getIsPlaying(): boolean { return this.isPlaying; }
+
+  // Health check - detects if audio stopped unexpectedly
+  startHealthCheck(onFailed: () => void, intervalMs = 30000): void {
+    this.onHealthCheckFailed = onFailed;
+    this.healthCheckInterval = setInterval(async () => {
+      if (this.isPlaying) {
+        const nativeIsPlaying = await this.getIsPlayingAsync();
+        if (!nativeIsPlaying) {
+          console.warn('[AudioService] Health check failed');
+          this.isPlaying = false;
+          this.onHealthCheckFailed?.();
+        }
+      }
+    }, intervalMs);
+  }
+
+  stopHealthCheck(): void {
+    if (this.healthCheckInterval) {
+      clearInterval(this.healthCheckInterval);
+      this.healthCheckInterval = null;
+    }
+  }
 }
 
 export const audioService = new AudioService();
@@ -334,19 +440,23 @@ end
 - Expo Modules API is fully compatible with New Architecture
 - Separate delegate class allows AVAudioPlayerDelegate conformance
 
-## Audio File
+## Audio Files
 
-The `hum.wav` file is ocean waves ambient sound that:
+The default soundscape is `ocean-waves.m4a` (ocean waves ambient sound):
 - Loops infinitely (`numberOfLoops = -1`)
-- Plays at low volume (0.3) to be unobtrusive
-- Is ~70 seconds, ~12.5MB
-- Located in `ios/Igloo/hum.wav` (bundled with the app)
+- Plays at user-adjustable volume (0.3 default, can be set to 0 for mute)
+- Is ~70 seconds, ~1.2MB (AAC format for efficient size)
+- Located in `ios/Igloo/ocean-waves.m4a` (bundled with the app)
 - Must be added to Xcode's "Copy Bundle Resources" build phase
 
-**Important**: If you replace the audio file, you must:
-1. Put the new file at `ios/Igloo/hum.wav`
-2. Clean Xcode's DerivedData: `rm -rf ~/Library/Developer/Xcode/DerivedData/Igloo-*`
-3. Rebuild the app
+**Multiple Soundscapes**: The app supports multiple soundscapes. See [SOUNDSCAPE_SYSTEM.md](./SOUNDSCAPE_SYSTEM.md) for how to add new soundscapes.
+
+**Important**: If you replace or add audio files, you must:
+1. Put the new file in `ios/Igloo/` with a descriptive name (e.g., `rain.m4a`)
+2. Add to Xcode's "Copy Bundle Resources" build phase
+3. Register in `services/audio/soundscapes.ts`
+4. Clean Xcode's DerivedData: `rm -rf ~/Library/Developer/Xcode/DerivedData/Igloo-*`
+5. Rebuild the app
 
 ## Building
 
@@ -369,14 +479,14 @@ npx expo run:ios --device
 ```
 [BackgroundAudio] Module created
 [AudioService] Expo BackgroundAudioModule available
-[AudioService] Calling native play...
+[AudioService] Calling native play with soundscape: ocean-waves...
 [BackgroundAudio] ========== START PLAYBACK ==========
 [BackgroundAudio] Step 1: Configuring audio session...
 [BackgroundAudio] Current category: AVAudioSessionCategorySoloAmbient
 [BackgroundAudio] Audio session activated successfully
 [BackgroundAudio] Output routes: ["Speaker"]
-[BackgroundAudio] Step 2: Looking for audio file...
-[BackgroundAudio] Found audio file at: /var/.../Igloo.app/hum.wav
+[BackgroundAudio] Step 2: Looking for audio file 'ocean-waves.m4a'...
+[BackgroundAudio] Found audio file at: /var/.../Igloo.app/ocean-waves.m4a
 [BackgroundAudio] Step 3: Creating AVAudioPlayer...
 [BackgroundAudio] Player created successfully
 [BackgroundAudio] - Duration: 70.8 seconds
@@ -431,13 +541,21 @@ Be prepared to explain:
 2. **Is the audio necessary?** - Yes, it serves dual purposes: (1) technical requirement for background execution, (2) audible indicator that the signer is active.
 3. **Can users control it?** - Yes, users explicitly start/stop the signer which controls the audio.
 
-### Future Improvements for App Store Compliance
+### Implemented App Store Compliance Features
 
-Consider adding:
-- **Now Playing integration** (`MPNowPlayingInfoCenter`) - Shows in Control Center
+The following features have been implemented:
+- **Now Playing integration** (`MPNowPlayingInfoCenter`) - Shows "Igloo Signer" and soundscape name in Control Center ✓
+- **Volume control in UI** - Settings tab allows users to adjust soundscape volume (including mute) ✓
+- **Soundscape selection** - Users can choose from multiple ambient sound options ✓
+- **Audio status indicator** - Shows when soundscape is active/interrupted in signer UI ✓
+- **User education** - Help tooltip explains why audio plays even in silent mode ✓
+- **Persisted preferences** - Volume and soundscape selection saved across app restarts ✓
+
+### Potential Future Improvements
+
+Consider adding if needed for App Store review:
 - **Remote command handling** (`MPRemoteCommandCenter`) - Play/pause from Control Center
-- **Multiple sound options** - Demonstrates this is a user-facing feature
-- **Volume control in UI** - Shows user agency over the audio
+- **Additional soundscapes** - Rain, forest, white noise, campfire (infrastructure ready)
 
 ## Battery Impact
 
@@ -454,20 +572,21 @@ Consider adding:
 ## Audio File Requirements
 
 ### Supported Formats
-- WAV (current) - Uncompressed, largest file size
-- M4A/AAC - Recommended for production (smaller, still high quality)
+- M4A/AAC (current) - Optimal balance of quality and size
+- WAV - Uncompressed, for source files only
 - MP3 - Acceptable, wider compatibility
 
-### Current File: hum.wav
+### Current File: ocean-waves.m4a
 - Duration: ~70 seconds
-- Size: ~12.5 MB
-- Format: 16-bit WAV, stereo
+- Size: ~1.2 MB (converted from 12.5 MB WAV - 91% reduction)
+- Format: AAC 128kbps, stereo
 - Content: Ocean waves ambient sound
 
-### Optimization Recommendations
-- Convert to AAC (.m4a) to reduce to ~2-3 MB
-- Consider shorter loop (30-40 seconds)
-- Ensure seamless loop point to avoid audible "click"
+### Converting Audio Files
+To convert a WAV source to AAC:
+```bash
+afconvert -f m4af -d aac -b 128000 source.wav output.m4a
+```
 
 ## iOS Version Compatibility
 
@@ -487,6 +606,7 @@ Chosen because:
 - `AVAudioSession` - Stable, no deprecations
 - `AVAudioPlayer` - Stable, no deprecations
 - `NotificationCenter` - Stable, no deprecations
+- `MPNowPlayingInfoCenter` - Stable, for Control Center integration
 
 ## Testing Background Mode
 

@@ -110,8 +110,31 @@ class IglooService extends EventEmitter<IglooServiceEvents> {
       // Start background audio to keep app alive in iOS background mode
       if (ENABLE_BACKGROUND_AUDIO) {
         try {
+          // Set up callback to receive native audio status changes (interruptions, etc.)
+          audioService.setStatusChangeCallback((status) => {
+            this.emit('audio:status', status);
+            if (status === 'interrupted') {
+              this.log('warn', 'system', 'Background audio interrupted (phone call, Siri, etc.)');
+            } else if (status === 'error') {
+              this.log('warn', 'system', 'Background audio failed to resume');
+            } else if (status === 'playing') {
+              this.log('info', 'system', 'Background audio resumed');
+            }
+          });
+
           await audioService.play();
+          this.emit('audio:status', 'playing');
+
+          // Subscribe to native events for interruption handling
+          audioService.subscribeToNativeEvents();
+
+          // Start health check as fallback to detect if audio stops unexpectedly
+          audioService.startHealthCheck(() => {
+            this.emit('audio:status', 'error');
+            this.log('warn', 'system', 'Background audio stopped unexpectedly');
+          });
         } catch (error) {
+          this.emit('audio:status', 'error');
           this.log('warn', 'system', 'Failed to start background audio', {
             error: error instanceof Error ? error.message : 'Unknown',
           });
@@ -171,8 +194,11 @@ class IglooService extends EventEmitter<IglooServiceEvents> {
 
       // Stop background audio (unless we're restarting)
       if (ENABLE_BACKGROUND_AUDIO && !options.keepAudio) {
+        audioService.stopHealthCheck();
+        audioService.unsubscribeFromNativeEvents();
         try {
           await audioService.stop();
+          this.emit('audio:status', 'idle');
         } catch (audioError) {
           this.log('warn', 'system', 'Failed to stop background audio', {
             error: audioError instanceof Error ? audioError.message : 'Unknown',
@@ -189,8 +215,11 @@ class IglooService extends EventEmitter<IglooServiceEvents> {
 
       // Also stop audio on error (unless we're restarting)
       if (ENABLE_BACKGROUND_AUDIO && !options.keepAudio) {
+        audioService.stopHealthCheck();
+        audioService.unsubscribeFromNativeEvents();
         try {
           await audioService.stop();
+          this.emit('audio:status', 'idle');
         } catch {
           // Ignore audio stop errors during error handling
         }
