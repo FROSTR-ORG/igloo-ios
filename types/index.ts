@@ -30,6 +30,36 @@ export interface ValidationResult {
 
 export type SignerStatus = 'stopped' | 'connecting' | 'running' | 'error';
 
+export type AudioStatus = 'idle' | 'playing' | 'interrupted' | 'error';
+
+// ============================================
+// Soundscape Types
+// ============================================
+
+/** Unique identifier for a soundscape */
+export type SoundscapeId =
+  | 'ocean-waves'
+  | 'rain'
+  | 'forest'
+  | 'white-noise'
+  | 'campfire'
+  | 'amazon-jungle'
+  | 'ambient-dream'
+  | 'birds'
+  | 'rain-and-birds'
+  | 'space-atmosphere';
+
+/** Configuration for a single soundscape option */
+export interface SoundscapeConfig {
+  id: SoundscapeId;
+  name: string;
+  description: string;
+  /** Filename without extension (must exist in ios/Igloo/ as .m4a) */
+  filename: string;
+  /** Whether this soundscape is currently available (file bundled) */
+  available: boolean;
+}
+
 export interface SigningRequest {
   id: string;
   pubkey: string;
@@ -88,6 +118,8 @@ export interface RelayConfig {
 
 export const DEFAULT_RELAYS = [
   'wss://relay.primal.net',
+  'wss://relay.damus.io',
+  'wss://nos.lol',
 ] as const;
 
 // ============================================
@@ -132,6 +164,7 @@ export interface CredentialStoreState {
 
 export interface SignerStoreState {
   status: SignerStatus;
+  audioStatus: AudioStatus;
   connectedRelays: string[];
   lastError: string | null;
   signingRequestsReceived: number;
@@ -140,6 +173,7 @@ export interface SignerStoreState {
   recentRequests: SigningRequest[];
   // Actions
   setStatus: (status: SignerStatus) => void;
+  setAudioStatus: (status: AudioStatus) => void;
   setConnectedRelays: (relays: string[]) => void;
   setError: (error: string | null) => void;
   incrementRequestsReceived: () => void;
@@ -185,12 +219,23 @@ export interface LogStoreState {
   setAutoScroll: (enabled: boolean) => void;
 }
 
+export interface AudioStoreState {
+  /** Current volume level (0.0 to 1.0) */
+  volume: number;
+  /** Currently selected soundscape */
+  soundscapeId: SoundscapeId;
+  // Actions
+  setVolume: (volume: number) => void;
+  setSoundscape: (id: SoundscapeId) => void;
+}
+
 // ============================================
 // Service Event Types
 // ============================================
 
 export interface IglooServiceEvents {
   'status:changed': (status: SignerStatus) => void;
+  'audio:status': (status: AudioStatus) => void;
   'relay:connected': (relay: string) => void;
   'relay:disconnected': (relay: string) => void;
   'signing:request': (request: SigningRequest) => void;

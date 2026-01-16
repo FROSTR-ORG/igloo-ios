@@ -1,14 +1,18 @@
-import { Button, Card, RelayInput, HelpTooltip, GradientBackground } from '@/components/ui';
+import { Button, Card, GradientBackground, HelpTooltip, RelayInput, SoundscapeSelector, VolumeControl } from '@/components/ui';
 import { useCredentials, useSigner } from '@/hooks';
-import { useRelayStore } from '@/stores';
-import {
-  Copy,
-  AlertTriangle,
-  Info,
-} from 'lucide-react-native';
+import { audioService } from '@/services/audio';
+import { useAudioStore, useRelayStore } from '@/stores';
+import type { SoundscapeId } from '@/types';
 import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
+import {
+  AlertTriangle,
+  Copy,
+  Info,
+  Music,
+  Volume2,
+} from 'lucide-react-native';
 import { useCallback } from 'react';
 import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -17,14 +21,54 @@ import pkg from '../../package.json';
 const IGLOO_CORE_VERSION = pkg.dependencies['@frostr/igloo-core']?.replace(/^[\^~]/, '') ?? 'unknown';
 
 export default function SettingsTab() {
-  const { stop } = useSigner();
+  const { stop, isRunning } = useSigner();
   const { shareDetails, deleteCredentials } = useCredentials();
   const relays = useRelayStore((s) => s.relays);
   const setRelays = useRelayStore((s) => s.setRelays);
 
+  // Audio preferences (persisted)
+  const volume = useAudioStore((s) => s.volume);
+  const soundscapeId = useAudioStore((s) => s.soundscapeId);
+  const setVolume = useAudioStore((s) => s.setVolume);
+  const setSoundscape = useAudioStore((s) => s.setSoundscape);
+
   const handleRelaysChange = useCallback((newRelays: string[]) => {
     setRelays(newRelays);
   }, [setRelays]);
+
+  const handleVolumeChange = useCallback(async (value: number) => {
+    const previousVolume = volume;
+    try {
+      await audioService.setVolume(value);
+      setVolume(value);
+    } catch (error) {
+      // Revert to previous volume on failure
+      setVolume(previousVolume);
+      Alert.alert(
+        'Error',
+        error instanceof Error ? error.message : 'Failed to set volume'
+      );
+    }
+  }, [volume, setVolume]);
+
+  const handleSoundscapeChange = useCallback(async (id: SoundscapeId) => {
+    const previousSoundscapeId = soundscapeId;
+    try {
+      // If signer is running, update the active audio player
+      if (isRunning) {
+        await audioService.setSoundscape(id);
+      }
+      // Always save the preference
+      setSoundscape(id);
+    } catch (error) {
+      // Revert to previous soundscape on failure
+      setSoundscape(previousSoundscapeId);
+      Alert.alert(
+        'Error',
+        error instanceof Error ? error.message : 'Failed to change soundscape'
+      );
+    }
+  }, [soundscapeId, setSoundscape, isRunning]);
 
   const handleClearCredentials = useCallback(async () => {
     Alert.alert(
@@ -83,6 +127,61 @@ export default function SettingsTab() {
                 onChange={handleRelaysChange}
                 showResetButton
               />
+            </Card>
+          </View>
+
+          {/* Soundscape Selection */}
+          <View className="mb-6">
+            <View className="flex-row items-center gap-1 mb-3">
+              <Music size={14} color="#9ca3af" strokeWidth={2} />
+              <Text className="text-sm font-semibold text-gray-400 uppercase tracking-wide">
+                Soundscape
+              </Text>
+              <HelpTooltip
+                title="Soundscape Selection"
+                content="Choose the ambient sound that plays while your signer is active. The soundscape keeps your signer responsive in the background."
+                size={14}
+              />
+            </View>
+
+            <Card>
+              <SoundscapeSelector
+                value={soundscapeId}
+                onValueChange={handleSoundscapeChange}
+              />
+              {!isRunning && (
+                <Text className="text-xs text-gray-500 mt-2">
+                  Start signer to play soundscape
+                </Text>
+              )}
+            </Card>
+          </View>
+
+          {/* Soundscape Volume */}
+          <View className="mb-6">
+            <View className="flex-row items-center gap-1 mb-3">
+              <Volume2 size={14} color="#9ca3af" strokeWidth={2} />
+              <Text className="text-sm font-semibold text-gray-400 uppercase tracking-wide">
+                Soundscape Volume
+              </Text>
+              <HelpTooltip
+                title="Background Audio"
+                content="The soundscape keeps your signer active when the app is in the background. It plays even in silent mode. Adjust volume to your preference - set to Off to mute."
+                size={14}
+              />
+            </View>
+
+            <Card>
+              <VolumeControl
+                value={volume}
+                onValueChange={handleVolumeChange}
+                disabled={!isRunning}
+              />
+              {!isRunning && (
+                <Text className="text-xs text-gray-500 mt-2">
+                  Start the signer to adjust volume
+                </Text>
+              )}
             </Card>
           </View>
 

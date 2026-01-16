@@ -15,6 +15,8 @@ import {
   Server,
   FileKey,
   User,
+  VolumeX,
+  Volume2,
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import {
@@ -28,12 +30,15 @@ import {
   GradientBackground,
 } from '@/components/ui';
 import { useSigner, useIgloo, useCopyFeedback } from '@/hooks';
+import { useAudioStore } from '@/stores';
+import { audioService } from '@/services/audio';
 import { secureStorage } from '@/services/storage/secureStorage';
 import type { SignerStatus, Credentials } from '@/types';
 
 export default function SignerTab() {
   const {
     status,
+    audioStatus,
     connectedRelays,
     lastError,
     signingRequestsReceived,
@@ -49,6 +54,11 @@ export default function SignerTab() {
 
   const { decodeGroupCredential, decodeShareCredential } = useIgloo();
   const { copied: pubkeyCopied, copy: copyPubkey } = useCopyFeedback();
+
+  // Audio state for quick mute
+  const volume = useAudioStore((s) => s.volume);
+  const setVolume = useAudioStore((s) => s.setVolume);
+  const previousVolume = useRef(volume > 0 ? volume : 0.3);
 
   const [uptime, setUptime] = useState(0);
   const [credentials, setCredentials] = useState<Credentials | null>(null);
@@ -116,6 +126,32 @@ export default function SignerTab() {
     }
   }, [shareDetails?.groupPubkey, copyPubkey]);
 
+  const handleMuteToggle = useCallback(async () => {
+    await Haptics.selectionAsync();
+    const previousVol = volume;
+    const newVolume = volume === 0
+      ? (previousVolume.current > 0 ? previousVolume.current : 0.3)
+      : 0;
+
+    try {
+      // Native call first, then update store on success
+      await audioService.setVolume(newVolume);
+
+      // Only update store and refs after native call succeeds
+      if (volume !== 0) {
+        previousVolume.current = volume;
+      }
+      setVolume(newVolume);
+    } catch (error) {
+      // Revert to previous volume on failure
+      setVolume(previousVol);
+      Alert.alert(
+        'Error',
+        error instanceof Error ? error.message : 'Failed to change volume'
+      );
+    }
+  }, [volume, setVolume]);
+
   return (
     <GradientBackground>
       <SafeAreaView className="flex-1" edges={[]}>
@@ -124,13 +160,54 @@ export default function SignerTab() {
           <Card variant="elevated" className="mb-4">
             <View className="items-center py-4">
               <SignerStatusIndicator status={status} />
-              <Text className="text-2xl font-bold text-gray-100 mt-4">
-                {getStatusText(status)}
-              </Text>
+              <View className="flex-row items-center gap-2 mt-4">
+                <Text className="text-2xl font-bold text-gray-100">
+                  {getStatusText(status)}
+                </Text>
+                {isRunning && (
+                  <HelpTooltip
+                    title="Background Soundscape"
+                    content="Tap the soundscape badge below to mute/unmute. The soundscape keeps your signer responsive in the background. Adjust volume in Settings."
+                    size={18}
+                  />
+                )}
+              </View>
               {lastError && (
                 <Text className="text-sm text-red-400 mt-2 text-center">
                   {lastError}
                 </Text>
+              )}
+              {/* Audio Status Warning */}
+              {isRunning && audioStatus !== 'playing' && audioStatus !== 'idle' && (
+                <View className="flex-row items-center gap-1 mt-2 px-3 py-1.5 bg-yellow-500/20 rounded-full">
+                  <VolumeX size={14} color="#eab308" />
+                  <Text className="text-xs text-yellow-400">
+                    {audioStatus === 'error'
+                      ? 'Audio failed - foreground only'
+                      : 'Audio interrupted'}
+                  </Text>
+                </View>
+              )}
+              {/* Soundscape Mute Toggle */}
+              {isRunning && audioStatus === 'playing' && (
+                <Pressable
+                  onPress={handleMuteToggle}
+                  className={`flex-row items-center gap-1.5 mt-2 px-3 py-1.5 rounded-full active:opacity-70 ${
+                    volume === 0 ? 'bg-red-500/20' : 'bg-blue-500/20'
+                  }`}
+                >
+                  {volume === 0 ? (
+                    <>
+                      <VolumeX size={14} color="#ef4444" />
+                      <Text className="text-xs text-red-400">Muted</Text>
+                    </>
+                  ) : (
+                    <>
+                      <Volume2 size={14} color="#60a5fa" />
+                      <Text className="text-xs text-blue-400">Soundscape</Text>
+                    </>
+                  )}
+                </Pressable>
               )}
             </View>
 

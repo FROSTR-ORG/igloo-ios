@@ -4,3 +4,4 @@ export { useSignerStore } from './signerStore';
 export { usePeerStore } from './peerStore';
 export { useRelayStore } from './relayStore';
 export { useLogStore, getFilteredLogs, isLogLevelEnabled, isCategoryEnabled } from './logStore';
+export { useAudioStore } from './audioStore';

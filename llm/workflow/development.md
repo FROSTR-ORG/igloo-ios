@@ -1,5 +1,7 @@
 # Igloo iOS - Development Workflow
 
+> **iOS-Specific Guide**: For detailed instructions on running the app with Expo Go, iOS Simulator, or a physical device, see [ios-development.md](./ios-development.md).
+
 ## Prerequisites
 
 ### Required Tools
@@ -64,8 +66,8 @@ This opens the Expo Dev Tools in your terminal with options:
 ### 3. Run on Specific Platform
 
 ```bash
-# iOS Simulator
-bun run ios
+# iOS Simulator (development build with native modules)
+npx expo run:ios
 
 # Android Emulator
 bun run android
@@ -73,6 +75,8 @@ bun run android
 # Web Browser
 bun run web
 ```
+
+> **Important**: This app includes custom native modules (BackgroundAudioModule for background signer operation). Use `npx expo run:ios` for full functionality. Expo Go only works for UI prototyping. See [ios-development.md](./ios-development.md) for details.
 
 ---
 

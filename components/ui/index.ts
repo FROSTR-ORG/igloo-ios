@@ -9,10 +9,12 @@ export { IconButton, getIconButtonColor, getIconButtonSize } from './IconButton'
 export { StatusIndicator, statusColors, statusTextColors } from './StatusIndicator';
 export { Collapsible, CollapsibleSection } from './Collapsible';
 export { Tooltip, HelpTooltip } from './Tooltip';
-export { RelayInput, DEFAULT_RELAYS, validateRelayUrl, normalizeRelayUrl } from './RelayInput';
+export { RelayInput, validateRelayUrl, normalizeRelayUrl } from './RelayInput';
 export { Alert } from './Alert';
 export { Modal, ConfirmModal } from './Modal';
 export { QRCodeModal } from './QRCodeModal';
 export { CredentialDisplay, CompactCredential } from './CredentialDisplay';
 export { StepIndicator, StepBadge } from './StepIndicator';
 export { GradientBackground, SubtleGradient } from './GradientBackground';
+export { VolumeControl } from './VolumeControl';
+export { SoundscapeSelector } from './SoundscapeSelector';
