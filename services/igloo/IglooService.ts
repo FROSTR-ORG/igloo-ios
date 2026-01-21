@@ -142,8 +142,14 @@ class IglooService extends EventEmitter<IglooServiceEvents> {
       }
 
       this.log('info', 'system', 'Signer node started successfully', {
-        relayCount: state.connectedRelays.length,
+        connectedRelays: state.connectedRelays.length,
         requestedRelays: relays.length,
+        failedRelays: relays.length - state.connectedRelays.length,
+        audioEnabled: ENABLE_BACKGROUND_AUDIO,
+      });
+
+      this.log('info', 'relay', `Connected to ${state.connectedRelays.length} relay(s)`, {
+        relays: state.connectedRelays,
       });
 
       // Emit only for actually connected relays
@@ -176,6 +182,10 @@ class IglooService extends EventEmitter<IglooServiceEvents> {
     this.log('info', 'system', 'Stopping signer node...', { keepAudio: options.keepAudio });
 
     try {
+      this.log('info', 'relay', 'Disconnecting from relays', {
+        relays: this.currentRelays,
+      });
+
       // Emit disconnection events for current relays
       this.currentRelays.forEach((relay) => this.emit('relay:disconnected', relay));
 
@@ -287,7 +297,7 @@ class IglooService extends EventEmitter<IglooServiceEvents> {
       const peers = extractPeersFromCredentials(group, share);
       const details = getShareDetailsWithGroup(share, group);
 
-      this.log('info', 'system', 'Credential decode validation passed', {
+      this.log('debug', 'system', 'Credential decode validation passed', {
         peerCount: peers.length,
         threshold: details.threshold,
         totalMembers: details.totalMembers,
@@ -384,11 +394,11 @@ class IglooService extends EventEmitter<IglooServiceEvents> {
       }
 
       // Fallback to manual extraction if igloo-core returns empty
-      this.log('debug', 'peer', 'igloo-core returned 0 peers, trying manual extraction');
       return this.extractPeersManually(group, share);
     } catch (error) {
-      this.log('warn', 'peer', 'extractPeersFromCredentials failed, trying manual', {
+      this.log('warn', 'peer', 'Peer extraction via igloo-core failed, falling back to manual', {
         error: error instanceof Error ? error.message : 'Unknown',
+        attempting: 'manual',
       });
 
       try {
@@ -476,7 +486,7 @@ class IglooService extends EventEmitter<IglooServiceEvents> {
 
     const peers = this.getPeers().map(normalizePeerPubkey);
     if (peers.length === 0) {
-      this.log('warn', 'peer', 'No peers to ping');
+      this.log('info', 'peer', 'No peers to ping');
       return [];
     }
 
@@ -490,7 +500,7 @@ class IglooService extends EventEmitter<IglooServiceEvents> {
         const normalizedPubkey = normalizePeerPubkey(result.pubkey);
         const status: PeerStatus = result.success ? 'online' : 'offline';
         this.emit('peer:status', normalizedPubkey, status, result.latency);
-        this.log('info', 'peer', `Ping ${truncatePubkey(normalizedPubkey)}`, {
+        this.log('debug', 'peer', `Ping ${truncatePubkey(normalizedPubkey)}`, {
           success: result.success,
           latency: result.latency,
           error: result.error,
@@ -583,7 +593,7 @@ class IglooService extends EventEmitter<IglooServiceEvents> {
       throw new Error('Credentials not available');
     }
 
-    this.log('info', 'echo', 'Sending echo signal...', { relays });
+    this.log('debug', 'echo', 'Initiating echo signal', { relayCount: relays.length });
 
     try {
       const result = await sendEcho(group, share, challenge, {
@@ -760,7 +770,7 @@ class IglooService extends EventEmitter<IglooServiceEvents> {
       const age = now - request.timestamp.getTime();
       if (age > maxAgeMs) {
         this.pendingRequests.delete(id);
-        this.log('warn', 'signing', 'Evicted stale pending request', {
+        this.log('warn', 'signing', 'Evicted stale signing request (>30s old)', {
           id,
           pubkey: truncatePubkey(request.pubkey),
           ageMs: age,
@@ -808,7 +818,7 @@ class IglooService extends EventEmitter<IglooServiceEvents> {
 
     // Multiple pending requests without pubkey match - cannot correlate safely
     if (this.pendingRequests.size > 1) {
-      this.log('warn', 'signing', 'Cannot correlate signing event - no pubkey match and multiple pending requests', {
+      this.log('warn', 'signing', 'Cannot correlate signing completion - ambiguous pubkey match', {
         pendingCount: this.pendingRequests.size,
         hasEventPubkey: !!eventPubkey,
       });

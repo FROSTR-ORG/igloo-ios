@@ -9,6 +9,7 @@ export default function OnboardingLayout() {
       }}
     >
       <Stack.Screen name="index" />
+      <Stack.Screen name="howto" />
       <Stack.Screen name="scan" />
       <Stack.Screen name="manual" />
     </Stack>

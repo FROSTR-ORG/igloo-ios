@@ -328,7 +328,7 @@ private cleanupStaleRequests(maxAgeMs = 30000): void {
     const age = now - request.timestamp.getTime();
     if (age > maxAgeMs) {
       this.pendingRequests.delete(id);
-      this.log('warn', 'signing', 'Evicted stale pending request', {
+      this.log('warn', 'signing', 'Evicted stale signing request (>30s old)', {
         id,
         pubkey: truncatePubkey(request.pubkey),
         ageMs: age,
@@ -374,6 +374,37 @@ This enables the verbose logging feature - all log entries are captured by `useI
 
 ---
 
+## Logging Guidelines
+
+### Log Categories
+
+| Category | Purpose | Examples |
+|----------|---------|----------|
+| `system` | Signer lifecycle, audio events, credential decode | "Signer node started", "Background audio resumed" |
+| `relay` | Relay connection/disconnection events | "Connected to N relay(s)", "Disconnecting from relays" |
+| `peer` | Peer extraction, ping operations, policy updates | "Extracted N peers", "Ping result" |
+| `signing` | Signing requests, completions, errors, correlation | "Received signing request", "Signing request completed" |
+| `echo` | Echo signal operations | "Initiating echo signal", "Echo sent successfully" |
+
+### Log Levels
+
+| Level | When to Use |
+|-------|-------------|
+| `debug` | Verbose per-operation details (ping results, credential decode success, echo initiation) |
+| `info` | Normal operational events (signer started, relay connected, signing completed) |
+| `warn` | Degraded states that aren't errors (audio interrupted, stale request evicted) |
+| `error` | Failures requiring attention (signer failed, decode error, signing error) |
+
+### Guidelines
+
+1. **Category accuracy**: Use specific categories (`relay`, `signing`) over catch-all `system` when applicable
+2. **Level appropriateness**: Reserve `info` for significant events; use `debug` for verbose/repeated operations
+3. **Message clarity**: Include timeout/threshold values in eviction messages (e.g., ">30s old")
+4. **Data payloads**: Include relevant counts and identifiers; truncate pubkeys with `truncatePubkey()`
+5. **No duplication**: Don't log the same operation twice; consolidate fallback paths
+
+---
+
 ## igloo-core APIs Used
 
 ```typescript
@@ -412,19 +443,37 @@ function generateRequestId(): string {
 
 ## Usage in Hooks
 
-The `useIgloo` hook connects events to stores:
+The `useIgloo` hook connects events to stores. Since multiple components may call `useIgloo()` (e.g., `_layout.tsx`, `signer.tsx`, `useSigner`), a module-level ref count keeps listeners registered until the last consumer unmounts:
 
 ```typescript
-useEffect(() => {
-  iglooService.on('status:changed', handleStatusChange);
-  iglooService.on('log', handleLog);
-  // ... more subscriptions
+// Module-level ref count to prevent duplicate registration
+let listenersRefCount = 0;
 
-  return () => {
-    iglooService.off('status:changed', handleStatusChange);
-    // ... cleanup
-  };
-}, []);
+export function useIgloo() {
+  useEffect(() => {
+    listenersRefCount += 1;
+
+    if (listenersRefCount === 1) {
+      iglooService.on('status:changed', handleStatusChange);
+      iglooService.on('log', handleLog);
+      // ... more subscriptions
+    }
+
+    return () => {
+      listenersRefCount -= 1;
+
+      if (listenersRefCount === 0) {
+        iglooService.off('status:changed', handleStatusChange);
+        // ... cleanup
+      }
+    };
+  }, []);
+
+  // Returns methods regardless of whether this call registered listeners
+  return { startSigner, stopSigner, ... };
+}
 ```
+
+This pattern prevents duplicate log entries while ensuring listeners stay active for all mounted hook instances.
 
 See `hooks/useIgloo.ts` for full implementation.
