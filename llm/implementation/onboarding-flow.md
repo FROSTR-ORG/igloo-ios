@@ -18,8 +18,15 @@ app/
 └── onboarding/
     ├── _layout.tsx          # Stack navigator for onboarding
     ├── index.tsx            # Welcome screen
+    ├── howto.tsx            # How to Get Started (info + prerequisites)
     ├── scan.tsx             # QR scanner (two-step)
     └── manual.tsx           # Manual text input
+```
+
+**Navigation Flow:**
+```
+Welcome (index.tsx)  →  How to Get Started (howto.tsx)  →  Scan/Manual
+   [Get Started]           [Scan QR] / [Enter Manually]
 ```
 
 ---
@@ -85,7 +92,7 @@ function RootLayoutNav() {
 
 **Location:** `app/onboarding/index.tsx`
 
-Simple welcome screen with two entry options:
+Simple welcome screen introducing Igloo with a single "Get Started" button:
 
 ```typescript
 export default function OnboardingWelcome() {
@@ -93,28 +100,81 @@ export default function OnboardingWelcome() {
     <SafeAreaView>
       {/* Header with Igloo branding */}
       <View className="items-center mb-12">
-        <FontAwesome name="snowflake-o" size={48} color="#0284c7" />
+        <Snowflake size={48} color="#60a5fa" />
         <Text className="text-3xl font-bold">Welcome to Igloo</Text>
         <Text>FROST threshold signing for Nostr</Text>
       </View>
 
       {/* Feature highlights */}
-      <FeatureItem icon="shield" title="Secure Storage" ... />
-      <FeatureItem icon="users" title="Peer Signing" ... />
-      <FeatureItem icon="lock" title="Threshold Security" ... />
+      <FeatureItem Icon={Shield} title="Secure Storage" ... />
+      <FeatureItem Icon={Users} title="Peer Signing" ... />
+      <FeatureItem Icon={Lock} title="Threshold Security" ... />
+
+      {/* Single action button */}
+      <Button
+        title="Get Started"
+        icon={<ArrowRight />}
+        onPress={() => router.push('/onboarding/howto')}
+      />
+    </SafeAreaView>
+  );
+}
+```
+
+---
+
+## How to Get Started Screen
+
+**Location:** `app/onboarding/howto.tsx`
+
+Informational page explaining how Igloo works, current limitations, and prerequisites:
+
+### Content Sections
+
+1. **Header** - Radio icon with "How Igloo Works" title
+2. **About box** (info Alert) - Explains threshold signatures and key splitting
+3. **Beta notice** (info Alert) - Clarifies this is a background signer only
+4. **Before You Start** (warning Alert) - Lists prerequisites (FROSTR keyset)
+5. **External links** - Links to get FROSTR credentials:
+   - Igloo Desktop (GitHub releases)
+   - Igloo CLI (npm)
+   - FROSTR Apps (frostr.org)
+6. **Action buttons** - "Scan QR Code" and "Enter Manually"
+
+```typescript
+export default function OnboardingHowto() {
+  return (
+    <SafeAreaView>
+      {/* Back button */}
+      <Pressable onPress={() => router.back()}>
+        <ArrowLeft />
+      </Pressable>
+
+      {/* Header */}
+      <View>
+        <Radio size={40} />
+        <Text>How Igloo Works</Text>
+        <Text>Your phone as a threshold signing node</Text>
+      </View>
+
+      {/* Info alerts */}
+      <Alert variant="info">About threshold signatures...</Alert>
+      <Alert variant="info" title="Currently in Beta">Background signer only...</Alert>
+      <Alert variant="warning" title="Before You Start">Need FROSTR keyset...</Alert>
+
+      {/* External links */}
+      <View className="flex-row flex-wrap gap-2">
+        {EXTERNAL_LINKS.map((link) => (
+          <Pressable onPress={() => Linking.openURL(link.url)}>
+            <ExternalLink />
+            <Text>{link.label}</Text>
+          </Pressable>
+        ))}
+      </View>
 
       {/* Action buttons */}
-      <Button
-        title="Scan QR Code"
-        icon={<FontAwesome name="qrcode" />}
-        onPress={() => router.push('/onboarding/scan')}
-      />
-      <Button
-        title="Enter Manually"
-        variant="secondary"
-        icon={<FontAwesome name="keyboard-o" />}
-        onPress={() => router.push('/onboarding/manual')}
-      />
+      <Button title="Scan QR Code" onPress={() => router.push('/onboarding/scan')} />
+      <Button title="Enter Manually" variant="secondary" onPress={() => router.push('/onboarding/manual')} />
     </SafeAreaView>
   );
 }
@@ -513,6 +573,12 @@ import { router } from 'expo-router';
 │ (tabs)  │  │ Onboarding  │
 │ Signer  │  │ Welcome     │
 └─────────┘  └──────┬──────┘
+                    │
+                    ▼
+             ┌─────────────┐
+             │ How to Get  │
+             │ Started     │
+             └──────┬──────┘
                     │
           ┌────────┴────────┐
           ▼                 ▼

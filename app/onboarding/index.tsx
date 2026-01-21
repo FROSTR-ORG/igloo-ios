@@ -6,8 +6,7 @@ import {
   Shield,
   Users,
   Lock,
-  QrCode,
-  Keyboard,
+  ArrowRight,
   type LucideIcon,
 } from 'lucide-react-native';
 import { Button } from '@/components/ui';
@@ -56,20 +55,13 @@ export default function OnboardingWelcome() {
           />
         </View>
 
-        {/* Actions */}
-        <View className="mt-8 gap-3">
+        {/* Action */}
+        <View className="mt-8">
           <Button
-            title="Scan QR Code"
+            title="Get Started"
             size="lg"
-            icon={<QrCode size={20} color="white" strokeWidth={2} />}
-            onPress={() => router.push('/onboarding/scan')}
-          />
-          <Button
-            title="Enter Manually"
-            variant="secondary"
-            size="lg"
-            icon={<Keyboard size={20} color="#9ca3af" strokeWidth={2} />}
-            onPress={() => router.push('/onboarding/manual')}
+            icon={<ArrowRight size={20} color="white" strokeWidth={2} />}
+            onPress={() => router.push('/onboarding/howto')}
           />
         </View>
       </View>
