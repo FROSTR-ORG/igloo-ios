@@ -88,7 +88,7 @@ export default function LogsTab() {
         onToggle={() => setExpandedId(expandedId === item.id ? null : item.id)}
       />
     ),
-    [expandedId]
+    [expandedId, groupPubkey]
   );
 
   const keyExtractor = useCallback((item: LogEntry) => item.id, []);
