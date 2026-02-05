@@ -39,7 +39,7 @@
 ```bash
 # Clone the repository
 git clone <repository-url>
-cd igloo-ios-prototype
+cd igloo-ios
 
 # Install dependencies with Bun
 bun install

@@ -19,7 +19,7 @@ This allows k-of-n multi-signature setups while maintaining the user's original 
 ## Project Structure
 
 ```
-igloo-ios-prototype/
+igloo-ios/
 ├── app/                      # Expo Router - file-based routing
 │   ├── _layout.tsx           # Root layout (credential routing, theme)
 │   ├── (tabs)/               # Tab navigator group
